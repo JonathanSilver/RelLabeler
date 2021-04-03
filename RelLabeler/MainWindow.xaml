@@ -1,0 +1,40 @@
+﻿<Window x:Class="RelLabeler.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:RelLabeler"
+        mc:Ignorable="d"
+        Title="RelLabeler" Height="450" Width="800">
+    <Grid>
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition/>
+			<ColumnDefinition/>
+		</Grid.ColumnDefinitions>
+		<TextBox Grid.Column="0" Name="SentenceText" IsReadOnly="True" FontSize="30" KeyDown="SentenceText_KeyDown" PreviewKeyDown="SentenceText_PreviewKeyDown" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"></TextBox>
+		<Grid Grid.Column="1">
+			<Grid.RowDefinitions>
+				<RowDefinition Height="80"/>
+				<RowDefinition/>
+			</Grid.RowDefinitions>
+			<StackPanel Grid.Row="0">
+				<StackPanel Orientation="Horizontal">
+					<Button Name="OpenFileButton" Margin="5" FontSize="20" Click="OpenFileButton_Click">Open</Button>
+					<Button Name="SaveButton" Margin="5" FontSize="20" Click="SaveButton_Click">Save</Button>
+					<Button Name="ExportButton" Margin="5" FontSize="20" Click="ExportButton_Click">Export</Button>
+				</StackPanel>
+				<StackPanel Orientation="Horizontal">
+					<Button Name="PreviousSentenceButton" Margin="5,5,0,5" FontSize="20" Click="PreviousSentenceButton_Click">&lt;</Button>
+					<ComboBox Name="SelectedSentence" Margin="0,5,0,5" FontSize="20" SelectionChanged="SelectedSentence_SelectionChanged"></ComboBox>
+					<Button Name="NextSentenceButton" Margin="0,5,5,5" FontSize="20" Click="NextSentenceButton_Click">&gt;</Button>
+					<Button Name="NewRecordButton" Margin="5" FontSize="20" Click="NewRecordButton_Click">New</Button>
+					<Button Name="DeleteRecordButton" Margin="5" FontSize="20" Click="DeleteRecordButton_Click">Delete</Button>
+				</StackPanel>
+			</StackPanel>
+			<ScrollViewer Grid.Row="1">
+				<ListBox Name="RecordsList" HorizontalContentAlignment="Stretch">
+				</ListBox>
+			</ScrollViewer>
+		</Grid>
+	</Grid>
+</Window>
