@@ -21,7 +21,7 @@ namespace RelLabeler
             InitializeComponent();
         }
 
-        List<RecordControl> records = new List<RecordControl>();
+        readonly List<RecordControl> records = new List<RecordControl>();
 
         string filePath;
         int idx = -1;
@@ -38,16 +38,25 @@ namespace RelLabeler
 
         void NewRecord()
         {
-            foreach (var record in records)
+            int firstSelectedPos = -1;
+            for (int i = 0; i < records.Count; i++)
             {
-                record.IsChecked = false;
+                if (records[i].IsChecked)
+                {
+                    if (firstSelectedPos == -1)
+                    {
+                        firstSelectedPos = i;
+                    }
+                    records[i].IsChecked = false;
+                }
             }
             RecordControl recordControl = new RecordControl
             {
                 IsChecked = true
             };
-            records.Add(recordControl);
-            RecordsList.Items.Add(recordControl);
+            firstSelectedPos++;
+            records.Insert(firstSelectedPos, recordControl);
+            RecordsList.Items.Insert(firstSelectedPos, recordControl);
         }
 
         void DeleteSelectedRecords()
@@ -171,6 +180,26 @@ namespace RelLabeler
             }
         }
 
+        static void Swap<T>(ref T x, ref T y)
+        {
+            T z = x;
+            x = y;
+            y = z;
+        }
+
+        static void Swap<T>(T list, int x, int y) where T : System.Collections.IList
+        {
+            if (x == y) return;
+            if (x > y) Swap(ref x, ref y);
+            // x < y
+            object obj_x = list[x];
+            object obj_y = list[y];
+            list.RemoveAt(y);
+            list.RemoveAt(x);
+            list.Insert(x, obj_y);
+            list.Insert(y, obj_x);
+        }
+
         private void NewRecordButton_Click(object sender, RoutedEventArgs e)
         {
             if (idx != -1)
@@ -274,8 +303,16 @@ namespace RelLabeler
                 }
                 if (selected != -1 && selected > 0)
                 {
-                    records[selected].IsChecked = false;
-                    records[selected - 1].IsChecked = true;
+                    if (Keyboard.IsKeyDown(Key.LeftCtrl))
+                    {
+                        Swap(records, selected, selected - 1);
+                        Swap(RecordsList.Items, selected, selected - 1);
+                    }
+                    else
+                    {
+                        records[selected].IsChecked = false;
+                        records[selected - 1].IsChecked = true;
+                    }
                 }
             }
             else if (e.Key == Key.W)
@@ -297,8 +334,16 @@ namespace RelLabeler
                 }
                 if (selected != -1 && selected + 1 < records.Count)
                 {
-                    records[selected].IsChecked = false;
-                    records[selected + 1].IsChecked = true;
+                    if (Keyboard.IsKeyDown(Key.LeftCtrl))
+                    {
+                        Swap(records, selected, selected + 1);
+                        Swap(RecordsList.Items, selected, selected + 1);
+                    }
+                    else
+                    {
+                        records[selected].IsChecked = false;
+                        records[selected + 1].IsChecked = true;
+                    }
                 }
             }
             else if (e.Key == Key.E)
