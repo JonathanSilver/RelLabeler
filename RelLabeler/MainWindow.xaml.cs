@@ -341,6 +341,10 @@ namespace RelLabeler
 
         private void OpenFileButton_Click(object sender, RoutedEventArgs e)
         {
+            if (idx != -1)
+            {
+                SaveCurrentRecords();
+            }
             Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
                 Filter = "Text/DB files (*.txt, *.db)|*.txt;*.db|All files (*.*)|*.*",
@@ -446,6 +450,7 @@ namespace RelLabeler
         private void ExportButton_Click(object sender, RoutedEventArgs e)
         {
             if (idx == -1) return;
+            SaveCurrentRecords();
             Microsoft.Win32.SaveFileDialog saveFileDialog = new Microsoft.Win32.SaveFileDialog
             {
                 DefaultExt = ".json",
@@ -502,6 +507,14 @@ namespace RelLabeler
                     }
                     writer.Flush();
                 }
+            }
+        }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (idx != -1)
+            {
+                SaveCurrentRecords();
             }
         }
     }
