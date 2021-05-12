@@ -1,0 +1,29 @@
+﻿<Window x:Class="RelLabeler.LabelManager"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:RelLabeler"
+        mc:Ignorable="d"
+        Title="RelLabeler - Label Manager" Height="450" Width="400">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <RowDefinition Height="40"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <TextBox Name="LabelName" Grid.Row="0" FontSize="20" Margin="5"></TextBox>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <Button Name="AddLabel" Grid.Column="0" FontSize="20" Margin="5" Click="AddLabel_Click">Add</Button>
+            <Button Name="ChangeLabel" Grid.Column="1" FontSize="20" Margin="5" Click="ChangeLabel_Click">Change</Button>
+            <Button Name="RemoveLabel" Grid.Column="2" FontSize="20" Margin="5" Click="RemoveLabel_Click">Remove</Button>
+        </Grid>
+        <ListBox Name="LabelList" Grid.Row="2" FontSize="20" SelectionChanged="LabelList_SelectionChanged">
+        </ListBox>
+    </Grid>
+</Window>

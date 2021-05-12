@@ -7,34 +7,45 @@
         mc:Ignorable="d"
         Title="RelLabeler" Height="450" Width="800" Closing="Window_Closing">
     <Grid>
-		<Grid.ColumnDefinitions>
-			<ColumnDefinition/>
-			<ColumnDefinition/>
-		</Grid.ColumnDefinitions>
-		<TextBox Grid.Column="0" Name="SentenceText" IsReadOnly="True" FontSize="30" KeyDown="SentenceText_KeyDown" PreviewKeyDown="SentenceText_PreviewKeyDown" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"></TextBox>
-		<Grid Grid.Column="1">
-			<Grid.RowDefinitions>
-				<RowDefinition Height="80"/>
-				<RowDefinition/>
-			</Grid.RowDefinitions>
-			<StackPanel Grid.Row="0">
-				<StackPanel Orientation="Horizontal">
-					<Button Name="OpenFileButton" Margin="5" FontSize="20" Click="OpenFileButton_Click">Open</Button>
-					<Button Name="SaveButton" Margin="5" FontSize="20" Click="SaveButton_Click">Save</Button>
-					<Button Name="ExportButton" Margin="5" FontSize="20" Click="ExportButton_Click">Export</Button>
-				</StackPanel>
-				<StackPanel Orientation="Horizontal">
-					<Button Name="PreviousSentenceButton" Margin="5,5,0,5" FontSize="20" Click="PreviousSentenceButton_Click">&lt;</Button>
-					<ComboBox Name="SelectedSentence" Margin="0,5,0,5" FontSize="20" SelectionChanged="SelectedSentence_SelectionChanged"></ComboBox>
-					<Button Name="NextSentenceButton" Margin="0,5,5,5" FontSize="20" Click="NextSentenceButton_Click">&gt;</Button>
-					<Button Name="NewRecordButton" Margin="5" FontSize="20" Click="NewRecordButton_Click">New</Button>
-					<Button Name="DeleteRecordButton" Margin="5" FontSize="20" Click="DeleteRecordButton_Click">Delete</Button>
-				</StackPanel>
-			</StackPanel>
-			<ScrollViewer Grid.Row="1">
-				<ListBox Name="RecordsList" HorizontalContentAlignment="Stretch">
-				</ListBox>
-			</ScrollViewer>
-		</Grid>
-	</Grid>
+        <DockPanel>
+            <Menu DockPanel.Dock="Top">
+                <MenuItem Header="_File">
+                    <MenuItem Header="_Open" Name="OpenFileButton" Click="OpenFileButton_Click"/>
+                    <MenuItem Header="_Save" Name="SaveButton" Click="SaveButton_Click" IsEnabled="False"/>
+                    <Separator/>
+                    <MenuItem Header="_Export" Name="ExportButton" Click="ExportButton_Click" IsEnabled="False"/>
+                </MenuItem>
+                <MenuItem Header="_Tools">
+                    <MenuItem Header="Entity _Label Manager" Name="EntityLabelManagerButton" Click="EntityLabelManagerButton_Click" IsEnabled="False"/>
+                    <MenuItem Header="_Predicate Label Manager" Name="PredicateLabelManagerButton" Click="PredicateLabelManagerButton_Click" IsEnabled="False"/>
+                </MenuItem>
+            </Menu>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Name="SentenceText" IsReadOnly="True" FontSize="30" KeyDown="SentenceText_KeyDown" PreviewKeyDown="SentenceText_PreviewKeyDown" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"></TextBox>
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Name="PreviousSentenceButton" Margin="5,5,0,5" FontSize="20" Click="PreviousSentenceButton_Click">&lt;</Button>
+                            <ComboBox Name="SelectedSentence" Margin="0,5,0,5" FontSize="20" SelectionChanged="SelectedSentence_SelectionChanged"></ComboBox>
+                            <Button Name="NextSentenceButton" Margin="0,5,5,5" FontSize="20" Click="NextSentenceButton_Click">&gt;</Button>
+                            <Button Name="NewRecordButton" Margin="5" FontSize="20" Click="NewRecordButton_Click">New</Button>
+                            <Button Name="DeleteRecordButton" Margin="5" FontSize="20" Click="DeleteRecordButton_Click">Delete</Button>
+                        </StackPanel>
+                    </StackPanel>
+                    <ScrollViewer Grid.Row="1">
+                        <ListBox Name="RecordsList" HorizontalContentAlignment="Stretch">
+                        </ListBox>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+        </DockPanel>
+    </Grid>
 </Window>

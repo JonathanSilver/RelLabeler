@@ -100,9 +100,16 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="LabelManager.xaml.cs">
+      <DependentUpon>LabelManager.xaml</DependentUpon>
+    </Compile>
     <Compile Include="RecordControl.xaml.cs">
       <DependentUpon>RecordControl.xaml</DependentUpon>
     </Compile>
+    <Page Include="LabelManager.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

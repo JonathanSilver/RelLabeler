@@ -23,6 +23,9 @@ namespace RelLabeler
 
         readonly List<RecordControl> records = new List<RecordControl>();
 
+        readonly List<string> entityLabels = new List<string>();
+        readonly List<string> predicateLabels = new List<string>();
+
         string filePath;
         int idx = -1;
 
@@ -31,9 +34,74 @@ namespace RelLabeler
             filePath = null;
             idx = -1;
             records.Clear();
+            entityLabels.Clear();
             RecordsList.Items.Clear();
             SelectedSentence.Items.Clear();
             SentenceText.Text = "";
+        }
+
+        void CreateLabelTable(SqliteConnection connection)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+                create table label (
+                    name text not null,
+                    type int not null
+                );
+            ";
+            command.ExecuteNonQuery();
+        }
+
+        List<string> GetLabels(SqliteConnection connection, int type)
+        {
+            // if type == 0, return entity labels,
+            // otherwise, return predicate labels
+            List<string> labels = new List<string>();
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+                select * from label where type = $type;
+            ";
+            command.Parameters.AddWithValue("$type", type);
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    labels.Add(reader.GetString(0));
+                }
+            }
+            return labels;
+        }
+
+        void LoadLabels()
+        {
+            entityLabels.Clear();
+            predicateLabels.Clear();
+            using (var connection = new SqliteConnection($"Data Source={filePath}"))
+            {
+                connection.Open();
+                try
+                {
+                    entityLabels.AddRange(
+                        GetLabels(connection, 0)
+                        );
+                }
+                catch (SqliteException)
+                {
+                    // assume this is triggered by missing the table
+                    CreateLabelTable(connection);
+                    entityLabels.AddRange(
+                        GetLabels(connection, 0)
+                        ); // redo the query
+                }
+                predicateLabels.AddRange(
+                    GetLabels(connection, 1)
+                    );
+            }
+            // perform reloading for each `RecordControl` combobox
+            foreach (var record in records)
+            {
+                record.LoadLabels();
+            }
         }
 
         void NewRecord()
@@ -50,7 +118,7 @@ namespace RelLabeler
                     records[i].IsChecked = false;
                 }
             }
-            RecordControl recordControl = new RecordControl
+            RecordControl recordControl = new RecordControl(entityLabels, predicateLabels)
             {
                 IsChecked = true
             };
@@ -89,14 +157,16 @@ namespace RelLabeler
             using (var connection = new SqliteConnection($"Data Source={filePath}"))
             {
                 connection.Open();
-                List<Tuple<string, string, string>> data = new List<Tuple<string, string, string>>();
+                List<Tuple<string, string, string, string, string>> data = new List<Tuple<string, string, string, string, string>>();
                 foreach (var record in records)
                 {
                     data.Add(
-                        new Tuple<string, string, string>(
+                        new Tuple<string, string, string, string, string>(
                             record.Subject,
                             record.Predicate,
-                            record.Object));
+                            record.Object,
+                            record.SubjectLabel,
+                            record.ObjectLabel));
                 }
                 var command = connection.CreateCommand();
                 command.CommandText = @"
@@ -132,25 +202,27 @@ namespace RelLabeler
                     if (reader.Read())
                     {
                         SentenceText.Text = reader.GetString(1);
-                        List<Tuple<string, string, string>> data;
+                        List<Tuple<string, string, string, string, string>> data;
                         if (reader.GetString(2) == "")
                         {
-                            data = new List<Tuple<string, string, string>>();
+                            data = new List<Tuple<string, string, string, string, string>>();
                         }
                         else
                         {
-                            data = JsonSerializer.Deserialize<List<Tuple<string, string, string>>>(reader.GetString(2));
+                            data = JsonSerializer.Deserialize<List<Tuple<string, string, string, string, string>>>(reader.GetString(2));
                         }
 
                         records.Clear();
                         RecordsList.Items.Clear();
                         foreach (var tuple in data)
                         {
-                            RecordControl record = new RecordControl
+                            RecordControl record = new RecordControl(entityLabels, predicateLabels)
                             {
                                 Subject = tuple.Item1,
                                 Predicate = tuple.Item2,
-                                Object = tuple.Item3
+                                Object = tuple.Item3,
+                                SubjectLabel = tuple.Item4,
+                                ObjectLabel = tuple.Item5
                             };
                             records.Add(record);
                             RecordsList.Items.Add(record);
@@ -429,12 +501,12 @@ namespace RelLabeler
                             var command = connection.CreateCommand();
                             command.CommandText =
                             @"
-                            create table data (
-                                line_id int unique,
-                                sentence text not null unique,
-                                relations text not null
-                            );
-                        ";
+                                create table data (
+                                    line_id int unique,
+                                    sentence text not null unique,
+                                    relations text not null
+                                );
+                            ";
                             command.ExecuteNonQuery();
                         }
                     }
@@ -484,11 +556,18 @@ namespace RelLabeler
                         }
                     }
                 }
-                this.Title = "RelLabeler - " + filePath;
+                Title = "RelLabeler - " + filePath;
                 if (SelectedSentence.Items.Count > 0)
                 {
                     SelectSentence(0);
                 }
+
+                SaveButton.IsEnabled = true;
+                ExportButton.IsEnabled = true;
+                EntityLabelManagerButton.IsEnabled = true;
+                PredicateLabelManagerButton.IsEnabled = true;
+
+                LoadLabels();
             }
         }
 
@@ -561,6 +640,18 @@ namespace RelLabeler
             {
                 SaveCurrentRecords();
             }
+        }
+
+        private void EntityLabelManagerButton_Click(object sender, RoutedEventArgs e)
+        {
+            new LabelManager(filePath, entityLabels, 0).ShowDialog();
+            LoadLabels();
+        }
+
+        private void PredicateLabelManagerButton_Click(object sender, RoutedEventArgs e)
+        {
+            new LabelManager(filePath, predicateLabels, 1).ShowDialog();
+            LoadLabels();
         }
     }
 }
