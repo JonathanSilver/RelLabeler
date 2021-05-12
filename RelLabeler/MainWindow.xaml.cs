@@ -23,8 +23,8 @@ namespace RelLabeler
 
         readonly List<RecordControl> records = new List<RecordControl>();
 
-        readonly List<string> entityLabels = new List<string>();
-        readonly List<string> predicateLabels = new List<string>();
+        readonly List<Tuple<string, string>> entityLabels = new List<Tuple<string, string>>();
+        readonly List<Tuple<string, string>> predicateLabels = new List<Tuple<string, string>>();
 
         string filePath;
         int idx = -1;
@@ -44,7 +44,12 @@ namespace RelLabeler
         {
             var command = connection.CreateCommand();
             command.CommandText = @"
+                drop table if exists label;
+            ";
+            command.ExecuteNonQuery();
+            command.CommandText = @"
                 create table label (
+                    code text not null,
                     name text not null,
                     type int not null
                 );
@@ -52,21 +57,23 @@ namespace RelLabeler
             command.ExecuteNonQuery();
         }
 
-        List<string> GetLabels(SqliteConnection connection, int type)
+        List<Tuple<string, string>> GetLabels(SqliteConnection connection, int type)
         {
             // if type == 0, return entity labels,
             // otherwise, return predicate labels
-            List<string> labels = new List<string>();
+            List<Tuple<string, string>> labels = new List<Tuple<string, string>>();
             var command = connection.CreateCommand();
             command.CommandText = @"
-                select * from label where type = $type;
+                select code, name from label where type = $type order by code;
             ";
             command.Parameters.AddWithValue("$type", type);
             using (var reader = command.ExecuteReader())
             {
                 while (reader.Read())
                 {
-                    labels.Add(reader.GetString(0));
+                    labels.Add(
+                        new Tuple<string, string>(
+                            reader.GetString(0), reader.GetString(1)));
                 }
             }
             return labels;

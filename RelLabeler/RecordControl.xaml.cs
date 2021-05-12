@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Windows.Controls;
 
 namespace RelLabeler
@@ -8,7 +9,7 @@ namespace RelLabeler
     /// </summary>
     public partial class RecordControl : UserControl
     {
-        public RecordControl(List<string> entityLabels, List<string> predicateLabels)
+        public RecordControl(List<Tuple<string, string>> entityLabels, List<Tuple<string, string>> predicateLabels)
         {
             InitializeComponent();
 
@@ -17,15 +18,15 @@ namespace RelLabeler
             LoadLabels();
         }
 
-        List<string> entityLabels;
-        List<string> predicateLabels;
+        List<Tuple<string, string>> entityLabels;
+        List<Tuple<string, string>> predicateLabels;
 
-        private void ComboBoxLoad(ComboBox comboBox, List<string> labels)
+        private void ComboBoxLoad(ComboBox comboBox, List<Tuple<string, string>> labels)
         {
             comboBox.Items.Clear();
             foreach (var label in labels)
             {
-                comboBox.Items.Add(label);
+                comboBox.Items.Add(LabelManager.GetLabelString(label));
             }
         }
 
@@ -33,10 +34,10 @@ namespace RelLabeler
         {
             ComboBoxLoad(SubjectType, entityLabels);
             ComboBoxLoad(ObjectType, entityLabels);
-            SubjectType.SelectedItem = subjectType;
-            ObjectType.SelectedItem = objectType;
+            SubjectLabel = subjectType;
+            ObjectLabel = objectType;
             ComboBoxLoad(PredicateType, predicateLabels);
-            PredicateType.SelectedItem = predicateType;
+            PredicateLabel = predicateType;
         }
 
         public bool IsChecked
@@ -73,7 +74,8 @@ namespace RelLabeler
             set
             {
                 subjectType = value;
-                SubjectType.SelectedItem = value;
+                int pos = LabelManager.FindLabelIndexByName(entityLabels, value);
+                SubjectType.SelectedIndex = pos;
             }
         }
 
@@ -83,7 +85,8 @@ namespace RelLabeler
             set
             {
                 predicateType = value;
-                PredicateType.SelectedItem = value;
+                int pos = LabelManager.FindLabelIndexByName(predicateLabels, value);
+                PredicateType.SelectedIndex = pos;
             }
         }
 
@@ -93,31 +96,32 @@ namespace RelLabeler
             set
             {
                 objectType = value;
-                ObjectType.SelectedItem = value;
+                int pos = LabelManager.FindLabelIndexByName(entityLabels, value);
+                ObjectType.SelectedIndex = pos;
             }
         }
 
         private void SubjectType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (SubjectType.SelectedItem != null)
+            if (SubjectType.SelectedIndex != -1)
             {
-                subjectType = (string)SubjectType.SelectedItem;
+                subjectType = entityLabels[SubjectType.SelectedIndex].Item2;
             }
         }
 
         private void ObjectType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (ObjectType.SelectedItem != null)
+            if (ObjectType.SelectedIndex != -1)
             {
-                objectType = (string)ObjectType.SelectedItem;
+                objectType = entityLabels[ObjectType.SelectedIndex].Item2;
             }
         }
 
         private void PredicateType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (PredicateType.SelectedItem != null)
+            if (PredicateType.SelectedIndex != -1)
             {
-                predicateType = (string)PredicateType.SelectedItem;
+                predicateType = predicateLabels[PredicateType.SelectedIndex].Item2;
             }
         }
     }
