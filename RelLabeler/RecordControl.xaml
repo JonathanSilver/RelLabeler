@@ -23,9 +23,10 @@
                 <RowDefinition/>
             </Grid.RowDefinitions>
             <TextBox Name="SubjectText" Margin="5" FontSize="20" Grid.Row="0" Grid.Column="0"></TextBox>
-            <ComboBox Name="PredicateText" Margin="5" FontSize="20" Grid.Row="0" Grid.Column="1" IsEditable="True"></ComboBox>
+            <TextBox Name="PredicateText" Margin="5" FontSize="20" Grid.Row="0" Grid.Column="1"></TextBox>
             <TextBox Name="ObjectText" Margin="5" FontSize="20" Grid.Row="0" Grid.Column="2"></TextBox>
             <ComboBox Name="SubjectType" Margin="5" FontSize="20" Grid.Row="1" Grid.Column="0" SelectionChanged="SubjectType_SelectionChanged"></ComboBox>
+            <ComboBox Name="PredicateType" Margin="5" FontSize="20" Grid.Row="1" Grid.Column="1" SelectionChanged="PredicateType_SelectionChanged"></ComboBox>
             <ComboBox Name="ObjectType" Margin="5" FontSize="20" Grid.Row="1" Grid.Column="2" SelectionChanged="ObjectType_SelectionChanged"></ComboBox>
         </Grid>
 	</Grid>

@@ -35,7 +35,8 @@ namespace RelLabeler
             ComboBoxLoad(ObjectType, entityLabels);
             SubjectType.SelectedItem = subjectType;
             ObjectType.SelectedItem = objectType;
-            ComboBoxLoad(PredicateText, predicateLabels);
+            ComboBoxLoad(PredicateType, predicateLabels);
+            PredicateType.SelectedItem = predicateType;
         }
 
         public bool IsChecked
@@ -63,6 +64,7 @@ namespace RelLabeler
         }
 
         private string subjectType;
+        private string predicateType;
         private string objectType;
 
         public string SubjectLabel
@@ -72,6 +74,16 @@ namespace RelLabeler
             {
                 subjectType = value;
                 SubjectType.SelectedItem = value;
+            }
+        }
+
+        public string PredicateLabel
+        {
+            get { return predicateType; }
+            set
+            {
+                predicateType = value;
+                PredicateType.SelectedItem = value;
             }
         }
 
@@ -98,6 +110,14 @@ namespace RelLabeler
             if (ObjectType.SelectedItem != null)
             {
                 objectType = (string)ObjectType.SelectedItem;
+            }
+        }
+
+        private void PredicateType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (PredicateType.SelectedItem != null)
+            {
+                predicateType = (string)PredicateType.SelectedItem;
             }
         }
     }

@@ -157,16 +157,20 @@ namespace RelLabeler
             using (var connection = new SqliteConnection($"Data Source={filePath}"))
             {
                 connection.Open();
-                List<Tuple<string, string, string, string, string>> data = new List<Tuple<string, string, string, string, string>>();
+                List<Tuple<string, string, string, string, string, string>> data 
+                    = new List<Tuple<string, string, string, string, string, string>>();
                 foreach (var record in records)
                 {
+                    // the order matters!
+                    // for forward compatibility
                     data.Add(
-                        new Tuple<string, string, string, string, string>(
+                        new Tuple<string, string, string, string, string, string>(
                             record.Subject,
                             record.Predicate,
                             record.Object,
                             record.SubjectLabel,
-                            record.ObjectLabel));
+                            record.ObjectLabel,
+                            record.PredicateLabel));
                 }
                 var command = connection.CreateCommand();
                 command.CommandText = @"
@@ -202,14 +206,16 @@ namespace RelLabeler
                     if (reader.Read())
                     {
                         SentenceText.Text = reader.GetString(1);
-                        List<Tuple<string, string, string, string, string>> data;
+                        List<Tuple<string, string, string, string, string, string>> data;
                         if (reader.GetString(2) == "")
                         {
-                            data = new List<Tuple<string, string, string, string, string>>();
+                            data = new List<Tuple<string, string, string, string, string, string>>();
                         }
                         else
                         {
-                            data = JsonSerializer.Deserialize<List<Tuple<string, string, string, string, string>>>(reader.GetString(2));
+                            data = JsonSerializer.Deserialize<
+                                List<Tuple<string, string, string, string, string, string>>
+                                >(reader.GetString(2));
                         }
 
                         records.Clear();
@@ -222,7 +228,8 @@ namespace RelLabeler
                                 Predicate = tuple.Item2,
                                 Object = tuple.Item3,
                                 SubjectLabel = tuple.Item4,
-                                ObjectLabel = tuple.Item5
+                                ObjectLabel = tuple.Item5,
+                                PredicateLabel = tuple.Item6
                             };
                             records.Add(record);
                             RecordsList.Items.Add(record);
