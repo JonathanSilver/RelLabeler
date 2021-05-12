@@ -8,8 +8,8 @@
         Title="RelLabeler - Label Manager" Height="450" Width="400">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="40"/>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="50"/>
             <RowDefinition/>
         </Grid.RowDefinitions>
         <TextBox Name="LabelName" Grid.Row="0" FontSize="20" Margin="5"></TextBox>
@@ -19,9 +19,9 @@
                 <ColumnDefinition/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
-            <Button Name="AddLabel" Grid.Column="0" FontSize="20" Margin="5" Click="AddLabel_Click">Add</Button>
-            <Button Name="ChangeLabel" Grid.Column="1" FontSize="20" Margin="5" Click="ChangeLabel_Click">Change</Button>
-            <Button Name="RemoveLabel" Grid.Column="2" FontSize="20" Margin="5" Click="RemoveLabel_Click">Remove</Button>
+            <Button Name="AddLabel" Grid.Column="0" Margin="5" Click="AddLabel_Click">Add</Button>
+            <Button Name="ChangeLabel" Grid.Column="1" Margin="5" Click="ChangeLabel_Click">Change</Button>
+            <Button Name="RemoveLabel" Grid.Column="2" Margin="5" Click="RemoveLabel_Click">Remove</Button>
         </Grid>
         <ListBox Name="LabelList" Grid.Row="2" FontSize="20" SelectionChanged="LabelList_SelectionChanged">
         </ListBox>

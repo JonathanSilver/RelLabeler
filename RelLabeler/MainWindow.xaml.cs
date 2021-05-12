@@ -567,6 +567,12 @@ namespace RelLabeler
                 EntityLabelManagerButton.IsEnabled = true;
                 PredicateLabelManagerButton.IsEnabled = true;
 
+                PreviousSentenceButton.IsEnabled = true;
+                SelectedSentence.IsEnabled = true;
+                NextSentenceButton.IsEnabled = true;
+                NewRecordButton.IsEnabled = true;
+                DeleteRecordButton.IsEnabled = true;
+
                 LoadLabels();
             }
         }

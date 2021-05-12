@@ -28,16 +28,16 @@
                 <TextBox Grid.Column="0" Name="SentenceText" IsReadOnly="True" FontSize="30" KeyDown="SentenceText_KeyDown" PreviewKeyDown="SentenceText_PreviewKeyDown" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"></TextBox>
                 <Grid Grid.Column="1">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="50"/>
                         <RowDefinition/>
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0">
                         <StackPanel Orientation="Horizontal">
-                            <Button Name="PreviousSentenceButton" Margin="5,5,0,5" FontSize="20" Click="PreviousSentenceButton_Click">&lt;</Button>
-                            <ComboBox Name="SelectedSentence" Margin="0,5,0,5" FontSize="20" SelectionChanged="SelectedSentence_SelectionChanged"></ComboBox>
-                            <Button Name="NextSentenceButton" Margin="0,5,5,5" FontSize="20" Click="NextSentenceButton_Click">&gt;</Button>
-                            <Button Name="NewRecordButton" Margin="5" FontSize="20" Click="NewRecordButton_Click">New</Button>
-                            <Button Name="DeleteRecordButton" Margin="5" FontSize="20" Click="DeleteRecordButton_Click">Delete</Button>
+                            <Button Name="PreviousSentenceButton" Margin="5" Click="PreviousSentenceButton_Click" IsEnabled="False">&lt;</Button>
+                            <ComboBox Name="SelectedSentence" Margin="5" FontSize="20" SelectionChanged="SelectedSentence_SelectionChanged" IsEnabled="False"></ComboBox>
+                            <Button Name="NextSentenceButton" Margin="5" Click="NextSentenceButton_Click" IsEnabled="False">&gt;</Button>
+                            <Button Name="NewRecordButton" Margin="5" Click="NewRecordButton_Click" IsEnabled="False">Add</Button>
+                            <Button Name="DeleteRecordButton" Margin="5" Click="DeleteRecordButton_Click" IsEnabled="False">Remove</Button>
                         </StackPanel>
                     </StackPanel>
                     <ScrollViewer Grid.Row="1">
