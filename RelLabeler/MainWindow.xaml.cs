@@ -164,7 +164,7 @@ namespace RelLabeler
             using (var connection = new SqliteConnection($"Data Source={filePath}"))
             {
                 connection.Open();
-                List<Tuple<string, string, string, string, string, string>> data 
+                List<Tuple<string, string, string, string, string, string>> data
                     = new List<Tuple<string, string, string, string, string, string>>();
                 foreach (var record in records)
                 {
@@ -617,14 +617,16 @@ namespace RelLabeler
                         {
                             while (reader.Read())
                             {
-                                List<Tuple<string, string, string>> list;
+                                List<Tuple<string, string, string, string, string, string>> list;
                                 if (reader.GetString(2) == "")
                                 {
-                                    list = new List<Tuple<string, string, string>>();
+                                    list = new List<Tuple<string, string, string, string, string, string>>();
                                 }
                                 else
                                 {
-                                    list = JsonSerializer.Deserialize<List<Tuple<string, string, string>>>(reader.GetString(2));
+                                    list = JsonSerializer.Deserialize<
+                                        List<Tuple<string, string, string, string, string, string>>
+                                        >(reader.GetString(2));
                                 }
                                 List<Dictionary<string, string>> res = new List<Dictionary<string, string>>();
                                 foreach (var tuple in list)
@@ -633,7 +635,10 @@ namespace RelLabeler
                                     {
                                         { "subject", tuple.Item1 },
                                         { "predicate", tuple.Item2 },
-                                        { "object", tuple.Item3 }
+                                        { "object", tuple.Item3 },
+                                        { "subject_type", tuple.Item4 },
+                                        { "object_type", tuple.Item5 },
+                                        { "predicate_type", tuple.Item6 }
                                     });
                                 }
                                 Dictionary<string, object> data = new Dictionary<string, object>
