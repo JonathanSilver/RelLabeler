@@ -15,9 +15,13 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
                 <ColumnDefinition Width="100"/>
+                <ColumnDefinition Width="50"/>
+                <ColumnDefinition Width="50"/>
             </Grid.ColumnDefinitions>
             <TextBox Grid.Column="0" Name="SearchBox" FontSize="20" Margin="5" KeyDown="SearchBox_KeyDown"></TextBox>
             <Button Grid.Column="1" Name="SearchButton" Margin="5" Click="SearchButton_Click">Search</Button>
+            <Button Grid.Column="2" Name="GoBackButton" Margin="5" IsEnabled="False" Click="GoBackButton_Click">&lt;</Button>
+            <Button Grid.Column="3" Name="GoForwardButton" Margin="5" IsEnabled="False" Click="GoForwardButton_Click">&gt;</Button>
         </Grid>
         <ListBox Grid.Row="1" Name="ResultList" FontSize="20" SelectionChanged="ResultList_SelectionChanged">
         </ListBox>

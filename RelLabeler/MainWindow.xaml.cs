@@ -21,14 +21,6 @@ namespace RelLabeler
             InitializeComponent();
         }
 
-        public MainWindow(SearchWindow searchWindow)
-        {
-            InitializeComponent();
-
-            mainWindowFlag = searchWindow == null;
-            this.searchWindow = searchWindow;
-        }
-
         readonly List<RecordControl> records = new List<RecordControl>();
 
         readonly List<Tuple<string, string>> entityLabels = new List<Tuple<string, string>>();
@@ -38,8 +30,6 @@ namespace RelLabeler
 
         public string filePath;
         public int idx = -1;
-
-        bool mainWindowFlag = true;
 
         void Clear()
         {
@@ -209,17 +199,6 @@ namespace RelLabeler
         void SelectSentence(int idx)
         {
             if (idx == -1) return;
-
-            if (searchWindow != null)
-            {
-                Tuple<string, int> tuple = new Tuple<string, int>(filePath, (int)SelectedSentence.Items[idx]);
-                if (searchWindow.CheckOrDisplay(this, tuple))
-                {
-                    SelectedSentence.SelectedIndex = this.idx;
-                    return;
-                }
-            }
-
             SaveCurrentRecords();
             this.idx = idx;
             SelectedSentence.SelectedIndex = idx;
@@ -400,7 +379,7 @@ namespace RelLabeler
                     }
                 }
             }
-            Title = "RelLabeler" + (mainWindowFlag ? "[Main]" : "") + " - " + filePath;
+            Title = "RelLabeler - " + filePath;
             if (isLineId)
             {
                 SelectedSentence.SelectedItem = selectedSentence;
@@ -697,7 +676,7 @@ namespace RelLabeler
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            if (mainWindowFlag && searchWindow != null)
+            if (searchWindow != null)
             {
                 if (MessageBox.Show(
                     "This is the main window. Closing it will close other opening windows as well. Are you sure you want to close it anyway?",
@@ -711,11 +690,7 @@ namespace RelLabeler
                 }
                 else
                 {
-                    if (searchWindow.secondaryWindow != null)
-                    {
-                        searchWindow.secondaryWindow.Close();
-                        searchWindow.secondaryWindow = null;
-                    }
+                    searchWindow.enableClosingCheck = false;
                     searchWindow.Close();
                 }
             }
@@ -743,14 +718,6 @@ namespace RelLabeler
                 searchWindow = new SearchWindow(this);
             searchWindow.Show();
             searchWindow.Activate();
-        }
-
-        private void Window_Closed(object sender, EventArgs e)
-        {
-            if (!mainWindowFlag)
-            {
-                searchWindow.secondaryWindow = null;
-            }
         }
     }
 }
