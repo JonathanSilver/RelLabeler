@@ -21,13 +21,25 @@ namespace RelLabeler
             InitializeComponent();
         }
 
+        public MainWindow(SearchWindow searchWindow)
+        {
+            InitializeComponent();
+
+            mainWindowFlag = searchWindow == null;
+            this.searchWindow = searchWindow;
+        }
+
         readonly List<RecordControl> records = new List<RecordControl>();
 
         readonly List<Tuple<string, string>> entityLabels = new List<Tuple<string, string>>();
         readonly List<Tuple<string, string>> predicateLabels = new List<Tuple<string, string>>();
+        
+        public SearchWindow searchWindow = null;
 
-        string filePath;
-        int idx = -1;
+        public string filePath;
+        public int idx = -1;
+
+        bool mainWindowFlag = true;
 
         void Clear()
         {
@@ -197,6 +209,17 @@ namespace RelLabeler
         void SelectSentence(int idx)
         {
             if (idx == -1) return;
+
+            if (searchWindow != null)
+            {
+                Tuple<string, int> tuple = new Tuple<string, int>(filePath, (int)SelectedSentence.Items[idx]);
+                if (searchWindow.CheckOrDisplay(this, tuple))
+                {
+                    SelectedSentence.SelectedIndex = this.idx;
+                    return;
+                }
+            }
+
             SaveCurrentRecords();
             this.idx = idx;
             SelectedSentence.SelectedIndex = idx;
@@ -284,6 +307,126 @@ namespace RelLabeler
             list.RemoveAt(x);
             list.Insert(x, obj_y);
             list.Insert(y, obj_x);
+        }
+
+        public void OpenFile(string fileName, int selectedSentence, bool isLineId = false)
+        {
+            if (idx != -1)
+            {
+                SaveCurrentRecords();
+            }
+            Clear();
+            filePath = fileName;
+            if (filePath.EndsWith(".db"))
+            {
+                using (var connection = new SqliteConnection($"Data Source={filePath}"))
+                {
+                    connection.Open();
+                    var command = connection.CreateCommand();
+                    command.CommandText = @"
+                            select line_id from data where line_id is not null order by line_id;
+                        ";
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            SelectedSentence.Items.Add(reader.GetInt32(0));
+                        }
+                    }
+                }
+            }
+            else
+            {
+                filePath += ".db";
+                if (!File.Exists(filePath))
+                {
+                    using (var connection = new SqliteConnection($"Data Source={filePath}"))
+                    {
+                        connection.Open();
+                        var command = connection.CreateCommand();
+                        command.CommandText =
+                        @"
+                                create table data (
+                                    line_id int unique,
+                                    sentence text not null unique,
+                                    relations text not null
+                                );
+                            ";
+                        command.ExecuteNonQuery();
+                    }
+                }
+                using (StreamReader reader = new StreamReader(fileName))
+                {
+                    using (var connection = new SqliteConnection($"Data Source={filePath}"))
+                    {
+                        connection.Open();
+                        var command = connection.CreateCommand();
+                        command.CommandText = @"
+                                update data set line_id = null;
+                            ";
+                        command.ExecuteNonQuery();
+                        int lineId = 0;
+                        while (reader.Peek() != -1)
+                        {
+                            string text = reader.ReadLine();
+                            if (text != "")
+                            {
+                                command.CommandText = @"
+                                        select count(*) from data where sentence = $text;
+                                    ";
+                                command.Parameters.Clear();
+                                command.Parameters.AddWithValue("$text", text);
+                                object r = command.ExecuteScalar();
+                                lineId++;
+                                if (Convert.ToInt32(r) == 0)
+                                {
+                                    command.CommandText = @"
+                                            insert into data (line_id, sentence, relations) values ($id, $text, '');
+                                        ";
+                                }
+                                else
+                                {
+                                    command.CommandText = @"
+                                            update data set line_id = $id where sentence = $text;
+                                        ";
+                                }
+                                command.Parameters.Clear();
+                                command.Parameters.AddWithValue("$id", lineId);
+                                command.Parameters.AddWithValue("$text", text);
+                                command.ExecuteNonQuery();
+                                SelectedSentence.Items.Add(lineId);
+                            }
+                        }
+                    }
+                }
+            }
+            Title = "RelLabeler" + (mainWindowFlag ? "[Main]" : "") + " - " + filePath;
+            if (isLineId)
+            {
+                SelectedSentence.SelectedItem = selectedSentence;
+            }
+            else
+            {
+                if (selectedSentence < SelectedSentence.Items.Count)
+                {
+                    SelectSentence(selectedSentence);
+                }
+            }
+
+            SaveButton.IsEnabled = true;
+            ExportButton.IsEnabled = true;
+            EntityLabelManagerButton.IsEnabled = true;
+            PredicateLabelManagerButton.IsEnabled = true;
+
+            PreviousSentenceButton.IsEnabled = true;
+            SelectedSentence.IsEnabled = true;
+            NextSentenceButton.IsEnabled = true;
+            NewRecordButton.IsEnabled = true;
+            DeleteRecordButton.IsEnabled = true;
+
+            SearchButton.IsEnabled = true;
+
+            LoadLabels();
         }
 
         private void NewRecordButton_Click(object sender, RoutedEventArgs e)
@@ -472,10 +615,6 @@ namespace RelLabeler
 
         private void OpenFileButton_Click(object sender, RoutedEventArgs e)
         {
-            if (idx != -1)
-            {
-                SaveCurrentRecords();
-            }
             Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
                 Filter = "Text/DB files (*.txt, *.db)|*.txt;*.db|All files (*.*)|*.*",
@@ -484,110 +623,7 @@ namespace RelLabeler
             };
             if (openFileDialog.ShowDialog() == true)
             {
-                Clear();
-                filePath = openFileDialog.FileName;
-                if (filePath.EndsWith(".db"))
-                {
-                    using (var connection = new SqliteConnection($"Data Source={filePath}"))
-                    {
-                        connection.Open();
-                        var command = connection.CreateCommand();
-                        command.CommandText = @"
-                            select line_id from data where line_id is not null order by line_id;
-                        ";
-                        using (var reader = command.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                SelectedSentence.Items.Add(reader.GetInt32(0));
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    filePath += ".db";
-                    if (!File.Exists(filePath))
-                    {
-                        using (var connection = new SqliteConnection($"Data Source={filePath}"))
-                        {
-                            connection.Open();
-                            var command = connection.CreateCommand();
-                            command.CommandText =
-                            @"
-                                create table data (
-                                    line_id int unique,
-                                    sentence text not null unique,
-                                    relations text not null
-                                );
-                            ";
-                            command.ExecuteNonQuery();
-                        }
-                    }
-                    var fileStream = openFileDialog.OpenFile();
-                    using (StreamReader reader = new StreamReader(fileStream))
-                    {
-                        using (var connection = new SqliteConnection($"Data Source={filePath}"))
-                        {
-                            connection.Open();
-                            var command = connection.CreateCommand();
-                            command.CommandText = @"
-                                update data set line_id = null;
-                            ";
-                            command.ExecuteNonQuery();
-                            int lineId = 0;
-                            while (reader.Peek() != -1)
-                            {
-                                string text = reader.ReadLine();
-                                if (text != "")
-                                {
-                                    command.CommandText = @"
-                                        select count(*) from data where sentence = $text;
-                                    ";
-                                    command.Parameters.Clear();
-                                    command.Parameters.AddWithValue("$text", text);
-                                    object r = command.ExecuteScalar();
-                                    lineId++;
-                                    if (Convert.ToInt32(r) == 0)
-                                    {
-                                        command.CommandText = @"
-                                            insert into data (line_id, sentence, relations) values ($id, $text, '');
-                                        ";
-                                    }
-                                    else
-                                    {
-                                        command.CommandText = @"
-                                            update data set line_id = $id where sentence = $text;
-                                        ";
-                                    }
-                                    command.Parameters.Clear();
-                                    command.Parameters.AddWithValue("$id", lineId);
-                                    command.Parameters.AddWithValue("$text", text);
-                                    command.ExecuteNonQuery();
-                                    SelectedSentence.Items.Add(lineId);
-                                }
-                            }
-                        }
-                    }
-                }
-                Title = "RelLabeler - " + filePath;
-                if (SelectedSentence.Items.Count > 0)
-                {
-                    SelectSentence(0);
-                }
-
-                SaveButton.IsEnabled = true;
-                ExportButton.IsEnabled = true;
-                EntityLabelManagerButton.IsEnabled = true;
-                PredicateLabelManagerButton.IsEnabled = true;
-
-                PreviousSentenceButton.IsEnabled = true;
-                SelectedSentence.IsEnabled = true;
-                NextSentenceButton.IsEnabled = true;
-                NewRecordButton.IsEnabled = true;
-                DeleteRecordButton.IsEnabled = true;
-
-                LoadLabels();
+                OpenFile(openFileDialog.FileName, 0);
             }
         }
 
@@ -661,6 +697,28 @@ namespace RelLabeler
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (mainWindowFlag && searchWindow != null)
+            {
+                if (MessageBox.Show(
+                    "This is the main window. Closing it will close other opening windows as well. Are you sure you want to close it anyway?",
+                    "Closing Confirmation",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Exclamation,
+                    MessageBoxResult.No) == MessageBoxResult.No)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+                else
+                {
+                    if (searchWindow.secondaryWindow != null)
+                    {
+                        searchWindow.secondaryWindow.Close();
+                        searchWindow.secondaryWindow = null;
+                    }
+                    searchWindow.Close();
+                }
+            }
             if (idx != -1)
             {
                 SaveCurrentRecords();
@@ -677,6 +735,22 @@ namespace RelLabeler
         {
             new LabelManager(filePath, predicateLabels, 1).ShowDialog();
             LoadLabels();
+        }
+
+        private void SearchButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (searchWindow == null)
+                searchWindow = new SearchWindow(this);
+            searchWindow.Show();
+            searchWindow.Activate();
+        }
+
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            if (!mainWindowFlag)
+            {
+                searchWindow.secondaryWindow = null;
+            }
         }
     }
 }

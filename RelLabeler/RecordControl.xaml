@@ -5,7 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:RelLabeler"
              mc:Ignorable="d" 
-             d:DesignHeight="100" d:DesignWidth="500">
+             d:DesignHeight="50" d:DesignWidth="500">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="30"/>
@@ -15,19 +15,19 @@
         <Grid Grid.Column="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
+                <!--<ColumnDefinition Width="*"/>-->
+                <!--<ColumnDefinition Width="*"/>-->
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition/>
-                <RowDefinition/>
+                <!--<RowDefinition/>-->
             </Grid.RowDefinitions>
             <TextBox Name="SubjectText" Margin="5" FontSize="20" Grid.Row="0" Grid.Column="0"></TextBox>
-            <TextBox Name="PredicateText" Margin="5" FontSize="20" Grid.Row="0" Grid.Column="1"></TextBox>
-            <TextBox Name="ObjectText" Margin="5" FontSize="20" Grid.Row="0" Grid.Column="2"></TextBox>
-            <ComboBox Name="SubjectType" Margin="5" FontSize="20" Grid.Row="1" Grid.Column="0" SelectionChanged="SubjectType_SelectionChanged" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False" IsEditable="True"></ComboBox>
-            <ComboBox Name="PredicateType" Margin="5" FontSize="20" Grid.Row="1" Grid.Column="1" SelectionChanged="PredicateType_SelectionChanged" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False" IsEditable="True"></ComboBox>
-            <ComboBox Name="ObjectType" Margin="5" FontSize="20" Grid.Row="1" Grid.Column="2" SelectionChanged="ObjectType_SelectionChanged" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False" IsEditable="True"></ComboBox>
+            <TextBox Name="PredicateText" Margin="5" FontSize="20" Grid.Row="0" Grid.Column="1" Visibility="Hidden"></TextBox>
+            <TextBox Name="ObjectText" Margin="5" FontSize="20" Grid.Row="0" Grid.Column="2" Visibility="Hidden"></TextBox>
+            <ComboBox Name="SubjectType" Margin="5" FontSize="20" Grid.Row="1" Grid.Column="0" SelectionChanged="SubjectType_SelectionChanged" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False" IsEditable="True" Visibility="Hidden"></ComboBox>
+            <ComboBox Name="PredicateType" Margin="5" FontSize="20" Grid.Row="1" Grid.Column="1" SelectionChanged="PredicateType_SelectionChanged" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False" IsEditable="True" Visibility="Hidden"></ComboBox>
+            <ComboBox Name="ObjectType" Margin="5" FontSize="20" Grid.Row="1" Grid.Column="2" SelectionChanged="ObjectType_SelectionChanged" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False" IsEditable="True" Visibility="Hidden"></ComboBox>
         </Grid>
 	</Grid>
 </UserControl>

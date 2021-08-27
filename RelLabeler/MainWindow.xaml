@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:RelLabeler"
         mc:Ignorable="d"
-        Title="RelLabeler" Height="450" Width="800" Closing="Window_Closing">
+        Title="RelLabeler[Main]" Height="450" Width="800" Closing="Window_Closing" Closed="Window_Closed">
     <Grid>
         <DockPanel>
             <Menu DockPanel.Dock="Top">
@@ -16,14 +16,16 @@
                     <MenuItem Header="_Export" Name="ExportButton" Click="ExportButton_Click" IsEnabled="False"/>
                 </MenuItem>
                 <MenuItem Header="_Tools">
+                    <MenuItem Header="_Search" Name="SearchButton" Click="SearchButton_Click" IsEnabled="False"/>
+                    <Separator/>
                     <MenuItem Header="Entity _Label Manager" Name="EntityLabelManagerButton" Click="EntityLabelManagerButton_Click" IsEnabled="False"/>
                     <MenuItem Header="_Predicate Label Manager" Name="PredicateLabelManagerButton" Click="PredicateLabelManagerButton_Click" IsEnabled="False"/>
                 </MenuItem>
             </Menu>
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition/>
-                    <ColumnDefinition/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBox Grid.Column="0" Name="SentenceText" IsReadOnly="True" FontSize="30" KeyDown="SentenceText_KeyDown" PreviewKeyDown="SentenceText_PreviewKeyDown" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"></TextBox>
                 <Grid Grid.Column="1">
