@@ -23,11 +23,11 @@ namespace RelLabeler
             InitializeComponent();
         }
 
-        readonly List<RecordControl> records = new List<RecordControl>();
+        readonly List<Record> records = new List<Record>();
 
         readonly List<Tuple<string, string>> entityLabels = new List<Tuple<string, string>>();
         readonly List<Tuple<string, string>> predicateLabels = new List<Tuple<string, string>>();
-        
+
         public SearchWindow searchWindow = null;
 
         public string filePath;
@@ -115,58 +115,11 @@ namespace RelLabeler
             // perform reloading for each `RecordControl` combobox
             foreach (var record in records)
             {
-                record.LoadLabels();
-            }
-        }
-
-        void NewRecord()
-        {
-            int firstSelectedPos = -1;
-            for (int i = 0; i < records.Count; i++)
-            {
-                if (records[i].IsChecked)
+                foreach (var control in record.Controls)
                 {
-                    if (firstSelectedPos == -1)
-                    {
-                        firstSelectedPos = i;
-                    }
-                    records[i].IsChecked = false;
+                    control.LoadLabels();
                 }
             }
-            RecordControl recordControl = new RecordControl(entityLabels, predicateLabels)
-            {
-                IsChecked = true
-            };
-            firstSelectedPos++;
-            records.Insert(firstSelectedPos, recordControl);
-            RecordsList.Items.Insert(firstSelectedPos, recordControl);
-        }
-
-        void DeleteSelectedRecords()
-        {
-            for (int i = records.Count - 1; i >= 0; i--)
-            {
-                if (records[i].IsChecked)
-                {
-                    RecordsList.Items.Remove(records[i]);
-                    records.RemoveAt(i);
-                }
-            }
-
-            ReloadText();
-        }
-
-        List<RecordControl> GetSelectedRecords()
-        {
-            List<RecordControl> recordControls = new List<RecordControl>();
-            foreach (var record in records)
-            {
-                if (record.IsChecked)
-                {
-                    recordControls.Add(record);
-                }
-            }
-            return recordControls;
         }
 
         void SaveCurrentRecords()
@@ -183,11 +136,11 @@ namespace RelLabeler
                     data.Add(
                         new Tuple<string, string, string, string, string, string>(
                             record.Subject,
-                            record.Predicate,
-                            record.Object,
-                            record.SubjectLabel,
-                            record.ObjectLabel,
-                            record.PredicateLabel));
+                            "",
+                            "",
+                            record.SubjectType,
+                            null,
+                            null));
                 }
                 var command = connection.CreateCommand();
                 command.CommandText = @"
@@ -204,27 +157,36 @@ namespace RelLabeler
             }
         }
 
-        FlowDocument GetDocument()
+        List<string> GetEntities()
         {
-            Paragraph paragraph = new Paragraph();
-
             List<string> entities = new List<string>();
             foreach (var record in records)
             {
-                if (!entities.Contains(record.Subject))
-                {
-                    entities.Add(record.Subject);
-                }
+                entities.Add(record.Subject);
             }
             entities.Sort((x, y) => x.Length == y.Length ? x.CompareTo(y) : y.Length - x.Length);
+            return entities;
+        }
+
+        void GetDocument()
+        {
+            foreach (var record in records)
+            {
+                record.Controls.Clear();
+            }
+            RecordsList.Items.Clear();
+
+            Paragraph paragraph = new Paragraph();
+
+            List<string> entities = GetEntities();
 
             Color[] c = new Color[] { Colors.Red, Colors.Green, Colors.Blue };
             int j = 0;
 
             string word = null;
-            if (searchWindow != null)
+            if (searchWindow != null && searchWindow.SearchText != "")
             {
-                word = searchWindow.SearchBox.Text;
+                word = searchWindow.SearchText;
             }
 
             bool highlight = false;
@@ -251,6 +213,10 @@ namespace RelLabeler
                 {
                     if (i + e.Length <= currentText.Length && currentText.Substring(i, e.Length) == e)
                     {
+                        var record = records.Find((x) => x.Subject == e);
+                        RecordsList.Items.Add(
+                            new RecordControl(this, entityLabels, predicateLabels, record));
+
                         Color currC = c[(j++) % c.Length];
                         if (highlight)
                         {
@@ -358,13 +324,13 @@ namespace RelLabeler
 
             FlowDocument document = new FlowDocument();
             document.Blocks.Add(paragraph);
-            return document;
+            SentenceText.Document = document;
         }
 
         public void ReloadText()
         {
             double offset = SentenceText.VerticalOffset;
-            SentenceText.Document = GetDocument();
+            GetDocument();
             SentenceText.ScrollToVerticalOffset(offset);
         }
 
@@ -399,33 +365,21 @@ namespace RelLabeler
                         }
 
                         records.Clear();
-                        RecordsList.Items.Clear();
                         foreach (var tuple in data)
                         {
-                            RecordControl record = new RecordControl(entityLabels, predicateLabels)
+                            Record record = new Record
                             {
                                 Subject = tuple.Item1,
-                                Predicate = tuple.Item2,
-                                Object = tuple.Item3,
-                                SubjectLabel = tuple.Item4,
-                                ObjectLabel = tuple.Item5,
-                                PredicateLabel = tuple.Item6
+                                SubjectType = tuple.Item4
                             };
-
-                            if (searchWindow != null)
+                            if (records.Find((x) => x.Subject == record.Subject) == null)
                             {
-                                if (record.Subject.Contains(searchWindow.SearchBox.Text))
-                                {
-                                    record.IsChecked = true;
-                                }
+                                records.Add(record);
                             }
-
-                            records.Add(record);
-                            RecordsList.Items.Add(record);
                         }
 
                         currentText = reader.GetString(1);
-                        SentenceText.Document = GetDocument();
+                        GetDocument();
                     }
                     if (reader.Read())
                     {
@@ -449,26 +403,6 @@ namespace RelLabeler
             {
                 SelectSentence(idx + 1);
             }
-        }
-
-        static void Swap<T>(ref T x, ref T y)
-        {
-            T z = x;
-            x = y;
-            y = z;
-        }
-
-        static void Swap<T>(T list, int x, int y) where T : System.Collections.IList
-        {
-            if (x == y) return;
-            if (x > y) Swap(ref x, ref y);
-            // x < y
-            object obj_x = list[x];
-            object obj_y = list[y];
-            list.RemoveAt(y);
-            list.RemoveAt(x);
-            list.Insert(x, obj_y);
-            list.Insert(y, obj_x);
         }
 
         public void OpenFile(string fileName, int selectedSentence, bool isLineId = false)
@@ -578,33 +512,17 @@ namespace RelLabeler
             SaveButton.IsEnabled = true;
             ExportButton.IsEnabled = true;
             EntityLabelManagerButton.IsEnabled = true;
-            PredicateLabelManagerButton.IsEnabled = true;
+            //PredicateLabelManagerButton.IsEnabled = true;
 
             PreviousSentenceButton.IsEnabled = true;
             SelectedSentence.IsEnabled = true;
             NextSentenceButton.IsEnabled = true;
-            NewRecordButton.IsEnabled = true;
-            DeleteRecordButton.IsEnabled = true;
+            //NewRecordButton.IsEnabled = true;
+            //DeleteRecordButton.IsEnabled = true;
 
             SearchButton.IsEnabled = true;
 
             LoadLabels();
-        }
-
-        private void NewRecordButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (idx != -1)
-            {
-                NewRecord();
-            }
-        }
-
-        private void DeleteRecordButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (idx != -1)
-            {
-                DeleteSelectedRecords();
-            }
         }
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -639,130 +557,77 @@ namespace RelLabeler
         private void SentenceText_KeyDown(object sender, KeyEventArgs e)
         {
             if (idx == -1) return;
-            if (e.Key == Key.A)
-            {
-                var controls = GetSelectedRecords();
-                foreach (var record in controls)
-                {
-                    record.Subject = SentenceText.Selection.Text;
-                }
-
-                ReloadText();
-            }
-            else if (e.Key == Key.S)
-            {
-                var controls = GetSelectedRecords();
-                foreach (var record in controls)
-                {
-                    record.Predicate = SentenceText.Selection.Text;
-                }
-            }
-            else if (e.Key == Key.D)
-            {
-                var controls = GetSelectedRecords();
-                foreach (var record in controls)
-                {
-                    record.Object = SentenceText.Selection.Text;
-                }
-            }
-            else if (e.Key == Key.F)
-            {
-                NewRecord();
-            }
-            else if (e.Key == Key.R)
+            if (e.Key == Key.E)
             {
                 GoPrevious();
             }
-            else if (e.Key == Key.T)
+            else if (e.Key == Key.R)
             {
                 GoNext();
-            }
-            else if (e.Key == Key.Q)
-            {
-                int selected = -1;
-                for (int i = 0; i < records.Count; i++)
-                {
-                    if (records[i].IsChecked)
-                    {
-                        if (selected == -1)
-                        {
-                            selected = i;
-                        }
-                        else
-                        {
-                            return;
-                        }
-                    }
-                }
-                if (selected != -1 && selected > 0)
-                {
-                    if (Keyboard.IsKeyDown(Key.LeftCtrl))
-                    {
-                        Swap(records, selected, selected - 1);
-                        Swap(RecordsList.Items, selected, selected - 1);
-                    }
-                    else
-                    {
-                        records[selected].IsChecked = false;
-                        records[selected - 1].IsChecked = true;
-                    }
-                }
-            }
-            else if (e.Key == Key.W)
-            {
-                int selected = -1;
-                for (int i = 0; i < records.Count; i++)
-                {
-                    if (records[i].IsChecked)
-                    {
-                        if (selected == -1)
-                        {
-                            selected = i;
-                        }
-                        else
-                        {
-                            return;
-                        }
-                    }
-                }
-                if (selected != -1 && selected + 1 < records.Count)
-                {
-                    if (Keyboard.IsKeyDown(Key.LeftCtrl))
-                    {
-                        Swap(records, selected, selected + 1);
-                        Swap(RecordsList.Items, selected, selected + 1);
-                    }
-                    else
-                    {
-                        records[selected].IsChecked = false;
-                        records[selected + 1].IsChecked = true;
-                    }
-                }
-            }
-            else if (e.Key == Key.E)
-            {
-                bool allSelected = true;
-                foreach (var record in records)
-                {
-                    if (!record.IsChecked)
-                    {
-                        allSelected = false;
-                        break;
-                    }
-                }
-                foreach (var record in records)
-                {
-                    record.IsChecked = !allSelected;
-                }
             }
             else if (e.Key == Key.G)
             {
                 SaveCurrentRecords();
             }
-            else if (e.Key == Key.B)
+        }
+
+        List<Tuple<int, int>> FindOccurrences(string text)
+        {
+            List<Tuple<int, int>> results = new List<Tuple<int, int>>();
+            for (int i = 0; i < currentText.Length; i++)
             {
-                DeleteSelectedRecords();
+                if (i + text.Length <= currentText.Length && currentText.Substring(i, text.Length) == text)
+                {
+                    results.Add(new Tuple<int, int>(i, i + text.Length));
+                    i += text.Length - 1;
+                }
             }
+            return results;
+        }
+
+        List<Tuple<int, int>> FindOccurrences(List<string> entities)
+        {
+            List<Tuple<int, int>> results = new List<Tuple<int, int>>();
+            for (int i = 0; i < currentText.Length; i++)
+            {
+                foreach (var e in entities)
+                {
+                    if (i + e.Length <= currentText.Length && currentText.Substring(i, e.Length) == e)
+                    {
+                        results.Add(new Tuple<int, int>(i, i + e.Length));
+                        i += e.Length - 1;
+                        break;
+                    }
+                }
+            }
+            return results;
+        }
+
+        static bool Intercept(Tuple<int, int> a, Tuple<int, int> b)
+        {
+            return !(a.Item2 <= b.Item1 || b.Item2 <= a.Item1);
+        }
+
+        static int GetOffset(TextPointer position)
+        {
+            string s = "";
+            while (position != null)
+            {
+                if (position.GetPointerContext(LogicalDirection.Backward) == TextPointerContext.Text)
+                {
+                    string textRun = position.GetTextInRun(LogicalDirection.Backward);
+                    s = textRun + s;
+                }
+                position = position.GetNextContextPosition(LogicalDirection.Backward);
+            }
+            return s.Length;
+        }
+
+        Tuple<int, int> GetOccurrenceOfSelectedText()
+        {
+            return new Tuple<int, int>(
+                GetOffset(SentenceText.Selection.Start),
+                GetOffset(SentenceText.Selection.End));
         }
 
         private void SentenceText_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -770,10 +635,113 @@ namespace RelLabeler
             if (idx == -1) return;
             if (e.Key == Key.Space)
             {
-                if (records.Count > 0)
+                string selectedText = SentenceText.Selection.Text;
+
+                if (selectedText == "") return;
+
+                Record existedRecord = records.Find((x) => x.Subject == selectedText);
+                if (existedRecord != null)
                 {
-                    records[0].IsChecked = !records[0].IsChecked;
+                    records.Remove(existedRecord);
                 }
+                else
+                {
+                    Tuple<int, int> targetOccurrence = GetOccurrenceOfSelectedText();
+
+                    List<string> entities = GetEntities();
+                    List<Tuple<int, int>> allEntitiesOccurrences = FindOccurrences(entities);
+                    Dictionary<string, int> entitiesOccurrences = new Dictionary<string, int>();
+                    foreach (var entityOccurrence in allEntitiesOccurrences)
+                    {
+                        string s = currentText.Substring(entityOccurrence.Item1, entityOccurrence.Item2 - entityOccurrence.Item1);
+                        if (entitiesOccurrences.ContainsKey(s))
+                        {
+                            entitiesOccurrences[s]++;
+                        }
+                        else
+                        {
+                            entitiesOccurrences.Add(s, 1);
+                        }
+                    }
+
+                    if (currentText.Substring(targetOccurrence.Item1, targetOccurrence.Item2 - targetOccurrence.Item1) == selectedText)
+                    {
+                        foreach (var entityOccurrence in allEntitiesOccurrences)
+                        {
+                            if (Intercept(targetOccurrence, entityOccurrence))
+                            {
+                                string s = currentText.Substring(entityOccurrence.Item1, entityOccurrence.Item2 - entityOccurrence.Item1);
+                                entitiesOccurrences[s]--;
+                                if (entitiesOccurrences[s] == 0)
+                                {
+                                    entitiesOccurrences.Remove(s);
+                                    records.Remove(records.Find((x) => x.Subject == s));
+                                }
+                            }
+                        }
+                        records.Add(new Record { Subject = selectedText });
+
+                        // remove redundancies
+
+                        entities = GetEntities();
+                        allEntitiesOccurrences = FindOccurrences(entities);
+                        entitiesOccurrences = new Dictionary<string, int>();
+                        foreach (var entityOccurrence in allEntitiesOccurrences)
+                        {
+                            string s = currentText.Substring(entityOccurrence.Item1, entityOccurrence.Item2 - entityOccurrence.Item1);
+                            if (entitiesOccurrences.ContainsKey(s))
+                            {
+                                entitiesOccurrences[s]++;
+                            }
+                            else
+                            {
+                                entitiesOccurrences.Add(s, 1);
+                            }
+                        }
+                        foreach (var s in entities)
+                        {
+                            if (!entitiesOccurrences.ContainsKey(s))
+                            {
+                                records.Remove(records.Find((x) => x.Subject == s));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show(
+                            "An error has occurred! Please report the incident.",
+                            "Error",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
+
+                        List<Tuple<int, int>> selectedTextOccurrences = FindOccurrences(selectedText);
+                        foreach (var occurrence in selectedTextOccurrences)
+                        {
+                            List<Tuple<int, int>> allEntitiesOccurrences2 = new List<Tuple<int, int>>();
+                            foreach (var entityOccurrence in allEntitiesOccurrences)
+                            {
+                                if (Intercept(occurrence, entityOccurrence))
+                                {
+                                    string s = currentText.Substring(entityOccurrence.Item1, entityOccurrence.Item2 - entityOccurrence.Item1);
+                                    entitiesOccurrences[s]--;
+                                    if (entitiesOccurrences[s] == 0)
+                                    {
+                                        entitiesOccurrences.Remove(s);
+                                        records.Remove(records.Find((x) => x.Subject == s));
+                                    }
+                                }
+                                else
+                                {
+                                    allEntitiesOccurrences2.Add(entityOccurrence);
+                                }
+                            }
+                            allEntitiesOccurrences = allEntitiesOccurrences2;
+                        }
+                        records.Add(new Record { Subject = selectedText });
+                    }
+                }
+
+                GetDocument();
             }
         }
 

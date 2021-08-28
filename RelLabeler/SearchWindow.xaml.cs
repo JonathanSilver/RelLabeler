@@ -26,6 +26,8 @@ namespace RelLabeler
         bool enableSelectionChangedDetection = true;
         public bool enableClosingCheck = true;
 
+        public String SearchText { get; set; }
+
         public SearchWindow(MainWindow mainWindow)
         {
             InitializeComponent();
@@ -34,6 +36,8 @@ namespace RelLabeler
 
             history.Add(GetCurrentStatus());
             historyPointer = 0;
+
+            SearchText = "";
         }
 
         int historyPointer
@@ -50,7 +54,7 @@ namespace RelLabeler
         Tuple<string, Tuple<string, int>, List<Tuple<string, int, string>>, int> GetCurrentStatus()
         {
             return new Tuple<string, Tuple<string, int>, List<Tuple<string, int, string>>, int>(
-                    SearchBox.Text,
+                    SearchText,
                     new Tuple<string, int>(mainWindow.filePath, mainWindow.idx),
                     new List<Tuple<string, int, string>>(result),
                     ResultList.SelectedIndex);
@@ -59,7 +63,7 @@ namespace RelLabeler
         void RestoreFromHistory()
         {
             var record = history[historyPointer];
-            SearchBox.Text = record.Item1;
+            SearchText = SearchBox.Text = record.Item1;
             mainWindow.OpenFile(record.Item2.Item1, record.Item2.Item2);
             result.Clear();
             result.AddRange(record.Item3);
@@ -122,6 +126,7 @@ namespace RelLabeler
                 }
             }
 
+            SearchText = SearchBox.Text;
             history.Add(GetCurrentStatus());
             historyPointer = history.Count - 1;
 

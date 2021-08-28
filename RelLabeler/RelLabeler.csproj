@@ -109,6 +109,7 @@
     <Compile Include="LabelManager.xaml.cs">
       <DependentUpon>LabelManager.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Record.cs" />
     <Compile Include="RecordControl.xaml.cs">
       <DependentUpon>RecordControl.xaml</DependentUpon>
     </Compile>

@@ -9,17 +9,28 @@ namespace RelLabeler
     /// </summary>
     public partial class RecordControl : UserControl
     {
-        public RecordControl(List<Tuple<string, string>> entityLabels, List<Tuple<string, string>> predicateLabels)
+        public RecordControl(MainWindow mainWindow, List<Tuple<string, string>> entityLabels, List<Tuple<string, string>> predicateLabels, Record record)
         {
             InitializeComponent();
 
+            this.mainWindow = mainWindow;
+
             this.entityLabels = entityLabels;
             this.predicateLabels = predicateLabels;
+
+            this.record = record;
+            record.Controls.Add(this);
+
             LoadLabels();
+
+            Subject = record.Subject;
         }
+
+        public MainWindow mainWindow;
 
         List<Tuple<string, string>> entityLabels;
         List<Tuple<string, string>> predicateLabels;
+        Record record;
 
         private void ComboBoxLoad(ComboBox comboBox, List<Tuple<string, string>> labels)
         {
@@ -33,95 +44,37 @@ namespace RelLabeler
         public void LoadLabels()
         {
             ComboBoxLoad(SubjectType, entityLabels);
-            ComboBoxLoad(ObjectType, entityLabels);
-            SubjectLabel = subjectType;
-            ObjectLabel = objectType;
-            ComboBoxLoad(PredicateType, predicateLabels);
-            PredicateLabel = predicateType;
-        }
-
-        public bool IsChecked
-        {
-            get { return (bool)IsSelected.IsChecked; }
-            set { IsSelected.IsChecked = value; }
+            SubjectLabel = record.SubjectType;
         }
 
         public string Subject
         {
-            get { return SubjectText.Text; }
-            set { SubjectText.Text = value; }
+            get { return record.Subject; }
+            set { record.Subject = value; }
         }
-
-        public string Predicate
-        {
-            get { return PredicateText.Text; }
-            set { PredicateText.Text = value; }
-        }
-
-        public string Object
-        {
-            get { return ObjectText.Text; }
-            set { ObjectText.Text = value; }
-        }
-
-        private string subjectType;
-        private string predicateType;
-        private string objectType;
 
         public string SubjectLabel
         {
-            get { return subjectType; }
-            set
-            {
-                subjectType = value;
-                int pos = LabelManager.FindLabelIndexByName(entityLabels, value);
-                SubjectType.SelectedIndex = pos;
-            }
+            get { return record.SubjectType; }
+            set { record.SubjectType = value; }
         }
 
-        public string PredicateLabel
+        public void SelectSubjectLabel(string label)
         {
-            get { return predicateType; }
-            set
-            {
-                predicateType = value;
-                int pos = LabelManager.FindLabelIndexByName(predicateLabels, value);
-                PredicateType.SelectedIndex = pos;
-            }
+            int pos = LabelManager.FindLabelIndexByName(entityLabels, label);
+            SubjectType.SelectedIndex = pos;
         }
 
-        public string ObjectLabel
+        private void SubjectText_TextChanged(object sender, TextChangedEventArgs e)
         {
-            get { return objectType; }
-            set
-            {
-                objectType = value;
-                int pos = LabelManager.FindLabelIndexByName(entityLabels, value);
-                ObjectType.SelectedIndex = pos;
-            }
+            Subject = SubjectText.Text;
         }
 
         private void SubjectType_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (SubjectType.SelectedIndex != -1)
             {
-                subjectType = entityLabels[SubjectType.SelectedIndex].Item2;
-            }
-        }
-
-        private void ObjectType_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ObjectType.SelectedIndex != -1)
-            {
-                objectType = entityLabels[ObjectType.SelectedIndex].Item2;
-            }
-        }
-
-        private void PredicateType_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (PredicateType.SelectedIndex != -1)
-            {
-                predicateType = predicateLabels[PredicateType.SelectedIndex].Item2;
+                record.SubjectType = entityLabels[SubjectType.SelectedIndex].Item2;
             }
         }
     }

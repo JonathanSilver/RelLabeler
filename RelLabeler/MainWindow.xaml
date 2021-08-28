@@ -19,7 +19,7 @@
                     <MenuItem Header="_Search" Name="SearchButton" Click="SearchButton_Click" IsEnabled="False"/>
                     <Separator/>
                     <MenuItem Header="Entity _Label Manager" Name="EntityLabelManagerButton" Click="EntityLabelManagerButton_Click" IsEnabled="False"/>
-                    <MenuItem Header="_Predicate Label Manager" Name="PredicateLabelManagerButton" Click="PredicateLabelManagerButton_Click" IsEnabled="False"/>
+                    <!--<MenuItem Header="_Predicate Label Manager" Name="PredicateLabelManagerButton" Click="PredicateLabelManagerButton_Click" IsEnabled="False"/>-->
                 </MenuItem>
             </Menu>
             <Grid>
@@ -38,8 +38,6 @@
                             <Button Name="PreviousSentenceButton" Margin="5" Click="PreviousSentenceButton_Click" IsEnabled="False">&lt;</Button>
                             <ComboBox Name="SelectedSentence" Margin="5" FontSize="20" SelectionChanged="SelectedSentence_SelectionChanged" IsEnabled="False"></ComboBox>
                             <Button Name="NextSentenceButton" Margin="5" Click="NextSentenceButton_Click" IsEnabled="False">&gt;</Button>
-                            <Button Name="NewRecordButton" Margin="5" Click="NewRecordButton_Click" IsEnabled="False">Add</Button>
-                            <Button Name="DeleteRecordButton" Margin="5" Click="DeleteRecordButton_Click" IsEnabled="False">Remove</Button>
                         </StackPanel>
                     </StackPanel>
                     <ScrollViewer Grid.Row="1">
