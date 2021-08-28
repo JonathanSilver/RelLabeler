@@ -27,7 +27,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0" Name="SentenceText" IsReadOnly="True" FontSize="30" KeyDown="SentenceText_KeyDown" PreviewKeyDown="SentenceText_PreviewKeyDown" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"></TextBox>
+                <RichTextBox Grid.Column="0" Name="SentenceText" IsReadOnly="True" FontSize="30" KeyDown="SentenceText_KeyDown" PreviewKeyDown="SentenceText_PreviewKeyDown" VerticalScrollBarVisibility="Auto"></RichTextBox>
                 <Grid Grid.Column="1">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="50"/>

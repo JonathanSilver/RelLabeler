@@ -7,7 +7,9 @@ using System.Text.Json;
 using System.Text.Unicode;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace RelLabeler
 {
@@ -31,6 +33,8 @@ namespace RelLabeler
         public string filePath;
         public int idx = -1;
 
+        string currentText;
+
         void Clear()
         {
             filePath = null;
@@ -39,7 +43,9 @@ namespace RelLabeler
             entityLabels.Clear();
             RecordsList.Items.Clear();
             SelectedSentence.Items.Clear();
-            SentenceText.Text = "";
+
+            currentText = "";
+            SentenceText.Document.Blocks.Clear();
         }
 
         void CreateLabelTable(SqliteConnection connection)
@@ -146,6 +152,8 @@ namespace RelLabeler
                     records.RemoveAt(i);
                 }
             }
+
+            ReloadText();
         }
 
         List<RecordControl> GetSelectedRecords()
@@ -191,9 +199,173 @@ namespace RelLabeler
                     {
                         Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
                     }));
-                command.Parameters.AddWithValue("$text", SentenceText.Text);
+                command.Parameters.AddWithValue("$text", currentText);
                 command.ExecuteNonQuery();
             }
+        }
+
+        FlowDocument GetDocument()
+        {
+            Paragraph paragraph = new Paragraph();
+
+            List<string> entities = new List<string>();
+            foreach (var record in records)
+            {
+                if (!entities.Contains(record.Subject))
+                {
+                    entities.Add(record.Subject);
+                }
+            }
+            entities.Sort((x, y) => x.Length == y.Length ? x.CompareTo(y) : y.Length - x.Length);
+
+            Color[] c = new Color[] { Colors.Red, Colors.Green, Colors.Blue };
+            int j = 0;
+
+            string word = null;
+            if (searchWindow != null)
+            {
+                word = searchWindow.SearchBox.Text;
+            }
+
+            bool highlight = false;
+            int highlightEnd = -1;
+            for (int i = 0; i < currentText.Length; i++)
+            {
+                if (word != null)
+                {
+                    if (!highlight)
+                    {
+                        if (i + word.Length <= currentText.Length && currentText.Substring(i, word.Length) == word)
+                        {
+                            highlight = true;
+                            highlightEnd = i + word.Length;
+                        }
+                    }
+                    else if (i == highlightEnd)
+                    {
+                        highlight = false;
+                    }
+                }
+                bool found = false;
+                foreach (var e in entities)
+                {
+                    if (i + e.Length <= currentText.Length && currentText.Substring(i, e.Length) == e)
+                    {
+                        Color currC = c[(j++) % c.Length];
+                        if (highlight)
+                        {
+                            if (highlightEnd >= i + e.Length)
+                            {
+                                // 0 [{1 2 3}] 4
+                                Run run = new Run(e);
+                                run.Foreground = new SolidColorBrush(currC);
+                                run.Background = new SolidColorBrush(Colors.Yellow);
+                                Bold bold = new Bold(run);
+                                paragraph.Inlines.Add(bold);
+                            }
+                            else
+                            {
+                                // 0 [{1} 2 3] 4
+                                Run run1 = new Run(currentText.Substring(i, highlightEnd - i));
+                                run1.Foreground = new SolidColorBrush(currC);
+                                run1.Background = new SolidColorBrush(Colors.Yellow);
+                                Bold bold1 = new Bold(run1);
+                                paragraph.Inlines.Add(bold1);
+                                Run run2 = new Run(currentText.Substring(highlightEnd, i + e.Length - highlightEnd));
+                                run2.Foreground = new SolidColorBrush(currC);
+                                Bold bold2 = new Bold(run2);
+                                paragraph.Inlines.Add(bold2);
+                                highlight = false;
+                            }
+                        }
+                        else
+                        {
+                            if (word != null)
+                            {
+                                int highlightBegin = -1;
+                                for (int k = i + 1; k < i + e.Length; k++)
+                                {
+                                    if (k + word.Length <= currentText.Length && currentText.Substring(k, word.Length) == word)
+                                    {
+                                        highlight = true;
+                                        highlightBegin = k;
+                                        highlightEnd = k + word.Length;
+                                        break;
+                                    }
+                                }
+                                if (highlight)
+                                {
+                                    Run run1 = new Run(currentText.Substring(i, highlightBegin - i));
+                                    run1.Foreground = new SolidColorBrush(currC);
+                                    Bold bold1 = new Bold(run1);
+                                    paragraph.Inlines.Add(bold1);
+                                    if (highlightEnd >= i + e.Length)
+                                    {
+                                        // 0 [1 2 {3 4 5}] 6
+                                        Run run2 = new Run(currentText.Substring(highlightBegin, i + e.Length - highlightBegin));
+                                        run2.Foreground = new SolidColorBrush(currC);
+                                        run2.Background = new SolidColorBrush(Colors.Yellow);
+                                        Bold bold2 = new Bold(run2);
+                                        paragraph.Inlines.Add(bold2);
+                                    }
+                                    else
+                                    {
+                                        // 0 [1 2 {3 4 5} 6 7 8 9] 10
+                                        Run run2 = new Run(currentText.Substring(highlightBegin, highlightEnd - highlightBegin));
+                                        run2.Foreground = new SolidColorBrush(currC);
+                                        run2.Background = new SolidColorBrush(Colors.Yellow);
+                                        Bold bold2 = new Bold(run2);
+                                        paragraph.Inlines.Add(bold2);
+                                        Run run3 = new Run(currentText.Substring(highlightEnd, i + e.Length - highlightEnd));
+                                        run3.Foreground = new SolidColorBrush(currC);
+                                        Bold bold3 = new Bold(run3);
+                                        paragraph.Inlines.Add(bold3);
+                                        highlight = false;
+                                    }
+                                }
+                                else
+                                {
+                                    Run run = new Run(e);
+                                    run.Foreground = new SolidColorBrush(currC);
+                                    Bold bold = new Bold(run);
+                                    paragraph.Inlines.Add(bold);
+                                }
+                            }
+                            else
+                            {
+                                Run run = new Run(e);
+                                run.Foreground = new SolidColorBrush(currC);
+                                Bold bold = new Bold(run);
+                                paragraph.Inlines.Add(bold);
+                            }
+                        }
+
+                        found = true;
+                        i += e.Length - 1;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    Run run = new Run(currentText[i].ToString());
+                    if (highlight)
+                    {
+                        run.Background = new SolidColorBrush(Colors.Yellow);
+                    }
+                    paragraph.Inlines.Add(run);
+                }
+            }
+
+            FlowDocument document = new FlowDocument();
+            document.Blocks.Add(paragraph);
+            return document;
+        }
+
+        public void ReloadText()
+        {
+            double offset = SentenceText.VerticalOffset;
+            SentenceText.Document = GetDocument();
+            SentenceText.ScrollToVerticalOffset(offset);
         }
 
         void SelectSentence(int idx)
@@ -214,7 +386,6 @@ namespace RelLabeler
                 {
                     if (reader.Read())
                     {
-                        SentenceText.Text = reader.GetString(1);
                         List<Tuple<string, string, string, string, string, string>> data;
                         if (reader.GetString(2) == "")
                         {
@@ -240,9 +411,21 @@ namespace RelLabeler
                                 ObjectLabel = tuple.Item5,
                                 PredicateLabel = tuple.Item6
                             };
+
+                            if (searchWindow != null)
+                            {
+                                if (record.Subject.Contains(searchWindow.SearchBox.Text))
+                                {
+                                    record.IsChecked = true;
+                                }
+                            }
+
                             records.Add(record);
                             RecordsList.Items.Add(record);
                         }
+
+                        currentText = reader.GetString(1);
+                        SentenceText.Document = GetDocument();
                     }
                     if (reader.Read())
                     {
@@ -461,15 +644,17 @@ namespace RelLabeler
                 var controls = GetSelectedRecords();
                 foreach (var record in controls)
                 {
-                    record.Subject = SentenceText.SelectedText;
+                    record.Subject = SentenceText.Selection.Text;
                 }
+
+                ReloadText();
             }
             else if (e.Key == Key.S)
             {
                 var controls = GetSelectedRecords();
                 foreach (var record in controls)
                 {
-                    record.Predicate = SentenceText.SelectedText;
+                    record.Predicate = SentenceText.Selection.Text;
                 }
             }
             else if (e.Key == Key.D)
@@ -477,7 +662,7 @@ namespace RelLabeler
                 var controls = GetSelectedRecords();
                 foreach (var record in controls)
                 {
-                    record.Object = SentenceText.SelectedText;
+                    record.Object = SentenceText.Selection.Text;
                 }
             }
             else if (e.Key == Key.F)

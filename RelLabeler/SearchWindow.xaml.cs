@@ -124,6 +124,8 @@ namespace RelLabeler
 
             history.Add(GetCurrentStatus());
             historyPointer = history.Count - 1;
+
+            mainWindow.ReloadText();
         }
 
         private void Window_Closed(object sender, EventArgs e)
