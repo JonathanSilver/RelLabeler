@@ -77,7 +77,7 @@ namespace RelLabeler
             enableSelectionChangedDetection = true;
         }
 
-        void Search()
+        public void Search()
         {
             if (SearchBox.Text == "")
                 return;
@@ -136,6 +136,8 @@ namespace RelLabeler
         private void Window_Closed(object sender, EventArgs e)
         {
             mainWindow.searchWindow = null;
+
+            mainWindow.ReloadText();
         }
 
         private void SearchButton_Click(object sender, RoutedEventArgs e)

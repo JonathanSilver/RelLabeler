@@ -509,7 +509,7 @@ namespace RelLabeler
                 }
             }
 
-            SaveButton.IsEnabled = true;
+            //SaveButton.IsEnabled = true;
             ExportButton.IsEnabled = true;
             EntityLabelManagerButton.IsEnabled = true;
             //PredicateLabelManagerButton.IsEnabled = true;
@@ -523,14 +523,6 @@ namespace RelLabeler
             SearchButton.IsEnabled = true;
 
             LoadLabels();
-        }
-
-        private void SaveButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (idx != -1)
-            {
-                SaveCurrentRecords();
-            }
         }
 
         private void SelectedSentence_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -554,6 +546,14 @@ namespace RelLabeler
             }
         }
 
+        void ShowSearch()
+        {
+            if (searchWindow == null)
+                searchWindow = new SearchWindow(this);
+            searchWindow.Show();
+            searchWindow.Activate();
+        }
+        
         private void SentenceText_KeyDown(object sender, KeyEventArgs e)
         {
             if (idx == -1) return;
@@ -565,9 +565,14 @@ namespace RelLabeler
             {
                 GoNext();
             }
-            else if (e.Key == Key.G)
+            else if (e.Key == Key.F && Keyboard.IsKeyDown(Key.LeftCtrl))
             {
-                SaveCurrentRecords();
+                ShowSearch();
+                if (SentenceText.Selection.Text != "")
+                {
+                    searchWindow.SearchBox.Text = SentenceText.Selection.Text;
+                    searchWindow.Search();
+                }
             }
         }
 
@@ -867,10 +872,7 @@ namespace RelLabeler
 
         private void SearchButton_Click(object sender, RoutedEventArgs e)
         {
-            if (searchWindow == null)
-                searchWindow = new SearchWindow(this);
-            searchWindow.Show();
-            searchWindow.Activate();
+            ShowSearch();
         }
     }
 }

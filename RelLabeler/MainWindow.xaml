@@ -11,7 +11,6 @@
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="_File">
                     <MenuItem Header="_Open" Name="OpenFileButton" Click="OpenFileButton_Click"/>
-                    <MenuItem Header="_Save" Name="SaveButton" Click="SaveButton_Click" IsEnabled="False"/>
                     <Separator/>
                     <MenuItem Header="_Export" Name="ExportButton" Click="ExportButton_Click" IsEnabled="False"/>
                 </MenuItem>
