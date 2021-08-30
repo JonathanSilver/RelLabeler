@@ -11,10 +11,11 @@ namespace RelLabeler
     /// </summary>
     public partial class LabelManager : Window
     {
-        public LabelManager(string metaPath, List<Tuple<string, string>> labels, int type)
+        public LabelManager(MainWindow mainWindow, string metaPath, List<Tuple<string, string>> labels, int type)
         {
             InitializeComponent();
 
+            this.mainWindow = mainWindow;
             this.metaPath = metaPath;
             this.labels = labels;
             this.type = type;
@@ -28,16 +29,22 @@ namespace RelLabeler
                 Title += " (Predicate)";
             }
 
+            LoadLabels();
+        }
+
+        readonly MainWindow mainWindow;
+        readonly string metaPath;
+        readonly List<Tuple<string, string>> labels;
+        readonly int type;
+
+        public void LoadLabels()
+        {
             LabelList.Items.Clear();
             foreach (var label in labels)
             {
                 LabelList.Items.Add(GetLabelString(label));
             }
         }
-
-        readonly string metaPath;
-        readonly List<Tuple<string, string>> labels;
-        readonly int type;
 
         public static string GetLabelString(Tuple<string, string> label)
         {
@@ -71,8 +78,6 @@ namespace RelLabeler
                 && FindLabelIndexByCode(labels, labelCode) == -1 
                 && FindLabelIndexByName(labels, labelName) == -1)
             {
-                labels.Add(new Tuple<string, string>(labelCode, labelName));
-                LabelList.Items.Add(GetLabelString(labels[labels.Count - 1]));
                 using (var connection = new SqliteConnection($"Data Source={metaPath}"))
                 {
                     connection.Open();
@@ -85,6 +90,9 @@ namespace RelLabeler
                     command.Parameters.AddWithValue("$type", type);
                     command.ExecuteNonQuery();
                 }
+                mainWindow.LoadLabels();
+                int pos = FindLabelIndexByCode(labels, labelCode);
+                LabelList.SelectedIndex = pos;
             }
         }
 
@@ -102,8 +110,6 @@ namespace RelLabeler
             {
                 string oldLabelCode = labels[pos].Item1;
                 string oldLabelName = labels[pos].Item2;
-                labels[pos] = new Tuple<string, string>(newLabelCode, newLabelName);
-                LabelList.Items[pos] = GetLabelString(labels[pos]);
                 using (var connection = new SqliteConnection($"Data Source={metaPath}"))
                 {
                     connection.Open();
@@ -120,6 +126,9 @@ namespace RelLabeler
                     command.Parameters.AddWithValue("$type", type);
                     command.ExecuteNonQuery();
                 }
+                mainWindow.LoadLabels();
+                pos = FindLabelIndexByCode(labels, newLabelCode);
+                LabelList.SelectedIndex = pos;
             }
         }
 
@@ -130,8 +139,6 @@ namespace RelLabeler
             {
                 string labelCode = labels[pos].Item1;
                 string labelName = labels[pos].Item2;
-                labels.RemoveAt(pos);
-                LabelList.Items.RemoveAt(pos);
                 using (var connection = new SqliteConnection($"Data Source={metaPath}"))
                 {
                     connection.Open();
@@ -144,6 +151,15 @@ namespace RelLabeler
                     command.Parameters.AddWithValue("$type", type);
                     command.ExecuteNonQuery();
                 }
+                mainWindow.LoadLabels();
+            }
+        }
+
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            if (type == 0)
+            {
+                mainWindow.entityLabelManager = null;
             }
         }
     }

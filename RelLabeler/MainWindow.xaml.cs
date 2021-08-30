@@ -40,6 +40,8 @@ namespace RelLabeler
         public DictionaryManager hintsManager = null;
         public DictionaryManager stopwordsManager = null;
 
+        public LabelManager entityLabelManager = null;
+
         public readonly string MetaName = ".rldb-meta";
         public string metaPath;
 
@@ -87,7 +89,7 @@ namespace RelLabeler
             return labels;
         }
 
-        void LoadLabels()
+        public void LoadLabels()
         {
             entityLabels.Clear();
             predicateLabels.Clear();
@@ -120,6 +122,7 @@ namespace RelLabeler
                     control.LoadLabels();
                 }
             }
+            if (entityLabelManager != null) entityLabelManager.LoadLabels();
         }
 
         void CreateCacheTable(SqliteConnection connection)
@@ -599,9 +602,10 @@ namespace RelLabeler
             });
 
             // display stopwords & hints
-            var allStopwordOccurrences = SetStopwords(new List<string>(appearedStopwords));
-            allEntityOccurrences.AddRange(allStopwordOccurrences);
             SetHints(new List<string>(appearedHints), allEntityOccurrences);
+            //var allStopwordOccurrences = 
+            SetStopwords(new List<string>(appearedStopwords));
+            //allEntityOccurrences.AddRange(allStopwordOccurrences);
 
             // display matched search text
 
@@ -1252,6 +1256,7 @@ namespace RelLabeler
             }
             if (stopwordsManager != null) stopwordsManager.Close();
             if (hintsManager != null) hintsManager.Close();
+            if (entityLabelManager != null) entityLabelManager.Close();
             if (idx != -1)
             {
                 SaveCurrentRecords();
@@ -1260,15 +1265,20 @@ namespace RelLabeler
 
         private void EntityLabelManagerButton_Click(object sender, RoutedEventArgs e)
         {
-            new LabelManager(metaPath, entityLabels, 0).ShowDialog();
-            LoadLabels();
+            if (entityLabelManager == null)
+            {
+                entityLabelManager = new LabelManager(this, metaPath, entityLabels, 0);
+            }
+            entityLabelManager.Show();
+            entityLabelManager.Activate();
+            //LoadLabels();
         }
 
-        private void PredicateLabelManagerButton_Click(object sender, RoutedEventArgs e)
-        {
-            new LabelManager(metaPath, predicateLabels, 1).ShowDialog();
-            LoadLabels();
-        }
+        //private void PredicateLabelManagerButton_Click(object sender, RoutedEventArgs e)
+        //{
+        //    new LabelManager(metaPath, predicateLabels, 1).ShowDialog();
+        //    LoadLabels();
+        //}
 
         private void SearchButton_Click(object sender, RoutedEventArgs e)
         {
