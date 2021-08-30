@@ -39,6 +39,10 @@ namespace RelLabeler
                 {
                     control.SelectSubjectLabel(value);
                 }
+                if (Controls.Count > 0)
+                {
+                    Controls[0].mainWindow.AddOrUpdateCache(subject, value);
+                }
                 isSubjectTypeFlag = false;
             }
         }

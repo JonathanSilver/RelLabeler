@@ -28,6 +28,8 @@ namespace RelLabeler
         readonly List<Tuple<string, string>> entityLabels = new List<Tuple<string, string>>();
         readonly List<Tuple<string, string>> predicateLabels = new List<Tuple<string, string>>();
 
+        readonly Dictionary<string, string> cache = new Dictionary<string, string>();
+
         readonly List<string> hints = new List<string>();
         readonly List<string> stopwords = new List<string>();
         readonly HashSet<string> appearedHints = new HashSet<string>();
@@ -120,6 +122,103 @@ namespace RelLabeler
             }
         }
 
+        void CreateCacheTable(SqliteConnection connection)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+                drop table if exists cache;
+            ";
+            command.ExecuteNonQuery();
+            command.CommandText = @"
+                create table cache (
+                    entity text not null unique,
+                    type text not null
+                );
+            ";
+            command.ExecuteNonQuery();
+        }
+
+        void GetCache(SqliteConnection connection)
+        {
+            cache.Clear();
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+                select entity, type from cache;
+            ";
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    cache.Add(reader.GetString(0), reader.GetString(1));
+                }
+            }
+        }
+
+        void LoadCache() // this should NOT be called on a regular basis
+        {
+            using (var connection = new SqliteConnection($"Data Source={metaPath}"))
+            {
+                connection.Open();
+                try
+                {
+                    GetCache(connection);
+                }
+                catch (SqliteException)
+                {
+                    // assume this is triggered by missing the table
+                    CreateCacheTable(connection);
+                    GetCache(connection);
+                }
+            }
+        }
+
+        public void AddOrUpdateCache(string entity, string type)
+        {
+            if (type == null) type = "";
+            if (cache.ContainsKey(entity) && cache[entity] == type) return;
+            using (var connection = new SqliteConnection($"Data Source={metaPath}"))
+            {
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    if (cache.ContainsKey(entity))
+                    {
+                        command.CommandText = @"
+                            update cache set type = $type where entity = $entity;
+                        ";
+                    }
+                    else
+                    {
+                        command.CommandText = @"
+                            insert into cache (entity, type) values ($entity, $type);
+                        ";
+                    }
+                    command.Parameters.AddWithValue("$entity", entity);
+                    command.Parameters.AddWithValue("$type", type);
+                    command.ExecuteNonQuery();
+                }
+            }
+            cache[entity] = type;
+        }
+
+        void RemoveCache(string entity)
+        {
+            if (!cache.ContainsKey(entity)) return;
+            using (var connection = new SqliteConnection($"Data Source={metaPath}"))
+            {
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = @"
+                        delete from cache where entity = $entity;
+                    ";
+                    command.Parameters.AddWithValue("$entity", entity);
+                    command.ExecuteNonQuery();
+                }
+            }
+            cache.Remove(entity);
+        }
+
         void CreateDictionaryTable(SqliteConnection connection)
         {
             var command = connection.CreateCommand();
@@ -156,22 +255,6 @@ namespace RelLabeler
             return words;
         }
 
-        //void CreateCacheTable(SqliteConnection connection)
-        //{
-        //    var command = connection.CreateCommand();
-        //    command.CommandText = @"
-        //        drop table if exists dictionary;
-        //    ";
-        //    command.ExecuteNonQuery();
-        //    command.CommandText = @"
-        //        create table dictionary (
-        //            name text not null,
-        //            type int not null
-        //        );
-        //    ";
-        //    command.ExecuteNonQuery();
-        //}
-
         void GetAppearedWords()
         {
             if (idx != -1)
@@ -190,6 +273,13 @@ namespace RelLabeler
                     if (currentText.Contains(word))
                     {
                         appearedHints.Add(word);
+                    }
+                }
+                foreach (var word in cache)
+                {
+                    if (currentText.Contains(word.Key))
+                    {
+                        appearedHints.Add(word.Key);
                     }
                 }
             }
@@ -340,7 +430,7 @@ namespace RelLabeler
             return entities;
         }
 
-        void SetStyle(List<string> words, bool updateRecordsList, Tuple<DependencyProperty, object[]>[] styles)
+        List<Tuple<int, int>> SetStyle(List<string> words, bool updateRecordsList, Tuple<DependencyProperty, object[]>[] styles, List<Tuple<int, int>> excludePositions = null)
         {
             SortEntities(words);
 
@@ -352,6 +442,8 @@ namespace RelLabeler
                 }
                 RecordsList.Items.Clear();
             }
+
+            List<Tuple<int, int>> occurrences = new List<Tuple<int, int>>();
 
             int[] rotatePtr = new int[styles.Length];
             int last = 0;
@@ -398,16 +490,39 @@ namespace RelLabeler
                                 {
                                     if (idx + text.Length <= currentText.Length && currentText.Substring(idx, text.Length) == text)
                                     {
-                                        if (updateRecordsList)
+                                        end = idx + text.Length;
+                                        Tuple<int, int> targetPosition = new Tuple<int, int>(idx, end);
+                                        bool interceptAny = false;
+
+                                        if (excludePositions != null)
                                         {
-                                            var record = records.Find((x) => x.Subject == text);
-                                            RecordsList.Items.Add(
-                                                new RecordControl(this, entityLabels, predicateLabels, record));
+                                            foreach (var currentPosition in excludePositions)
+                                            {
+                                                if (Intercept(targetPosition, currentPosition))
+                                                {
+                                                    interceptAny = true;
+                                                    break;
+                                                }
+                                            }
                                         }
 
-                                        startPointer = position.GetPositionAtOffset(idx - start);
-                                        end = idx + text.Length;
-                                        break;
+                                        if (!interceptAny)
+                                        {
+                                            if (updateRecordsList)
+                                            {
+                                                var record = records.Find((x) => x.Subject == text);
+                                                RecordsList.Items.Add(
+                                                    new RecordControl(this, entityLabels, predicateLabels, record));
+                                            }
+
+                                            startPointer = position.GetPositionAtOffset(idx - start);
+                                            occurrences.Add(targetPosition);
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            end = -1;
+                                        }
                                     }
                                 }
                             }
@@ -426,14 +541,16 @@ namespace RelLabeler
                     break;
                 }
             }
+
+            return occurrences;
         }
 
-        void SetStyle(List<string> words, Tuple<DependencyProperty, object[]>[] styles)
+        List<Tuple<int, int>> SetStyle(List<string> words, Tuple<DependencyProperty, object[]>[] styles, List<Tuple<int, int>> occurrences = null)
         {
-            SetStyle(words, false, styles);
+            return SetStyle(words, false, styles, occurrences);
         }
 
-        void SetHints(List<string> words)
+        void SetHints(List<string> words, List<Tuple<int, int>> occurrences)
         {
             SetStyle(words, new Tuple<DependencyProperty, object[]>[] {
                 new Tuple<DependencyProperty, object[]>(
@@ -441,13 +558,13 @@ namespace RelLabeler
                     new object[] { TextDecorations.Underline }),
                 new Tuple<DependencyProperty, object[]>(
                     TextElement.BackgroundProperty,
-                    new object[] { Brushes.LightGreen })
-            });
+                    new object[] { Brushes.LightCyan })
+            }, occurrences);
         }
 
-        void SetStopwords(List<string> words)
+        List<Tuple<int, int>> SetStopwords(List<string> words)
         {
-            SetStyle(words, new Tuple<DependencyProperty, object[]>[] {
+            return SetStyle(words, new Tuple<DependencyProperty, object[]>[] {
                 new Tuple<DependencyProperty, object[]>(
                     Inline.TextDecorationsProperty,
                     new object[] { TextDecorations.Strikethrough }),
@@ -468,23 +585,23 @@ namespace RelLabeler
             document.Blocks.Add(paragraph);
             SentenceText.Document = document;
 
-            // display stopwords & hints
-
-            SetHints(new List<string>(appearedHints));
-            SetStopwords(new List<string>(appearedStopwords));
-
             // display entities
 
             List<string> entities = GetEntities();
 
-            SetStyle(entities, true, new Tuple<DependencyProperty, object[]>[] {
+            var allEntityOccurrences = SetStyle(entities, true, new Tuple<DependencyProperty, object[]>[] {
                 new Tuple<DependencyProperty, object[]>(
                     TextElement.FontWeightProperty,
                     new object[] { FontWeights.Bold }),
                 new Tuple<DependencyProperty, object[]>(
                     TextElement.ForegroundProperty,
-                    new object[] { Brushes.Red, Brushes.Green, Brushes.Blue })
+                    new object[] { Brushes.Blue, Brushes.Green })
             });
+
+            // display stopwords & hints
+            var allStopwordOccurrences = SetStopwords(new List<string>(appearedStopwords));
+            allEntityOccurrences.AddRange(allStopwordOccurrences);
+            SetHints(new List<string>(appearedHints), allEntityOccurrences);
 
             // display matched search text
 
@@ -601,6 +718,8 @@ namespace RelLabeler
 
             FileInfo info = new FileInfo(fileName);
             metaPath = Path.Combine(info.Directory.FullName, MetaName);
+
+            LoadCache();
 
             if (filePath.EndsWith(".db"))
             {
@@ -816,6 +935,16 @@ namespace RelLabeler
                     }
                 }
             }
+            else if (e.Key == Key.D && Keyboard.IsKeyDown(Key.LeftCtrl) && Keyboard.IsKeyDown(Key.LeftShift))
+            {
+                string text = SentenceText.Selection.Text;
+                if (text != "")
+                {
+                    RemoveCache(text);
+                    GetAppearedWords();
+                    ReloadText();
+                }
+            }
         }
 
         List<Tuple<int, int>> FindOccurrences(string text)
@@ -926,7 +1055,17 @@ namespace RelLabeler
                                 }
                             }
                         }
-                        records.Add(new Record { Subject = selectedText });
+
+                        if (cache.ContainsKey(selectedText))
+                        {
+                            records.Add(new Record { Subject = selectedText, SubjectType = cache[selectedText] });
+                        }
+                        else
+                        {
+                            records.Add(new Record { Subject = selectedText });
+                            AddOrUpdateCache(selectedText, "");
+                            GetAppearedWords();
+                        }
 
                         // remove redundancies
 
