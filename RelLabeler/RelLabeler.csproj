@@ -106,6 +106,9 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="DictionaryManager.xaml.cs">
+      <DependentUpon>DictionaryManager.xaml</DependentUpon>
+    </Compile>
     <Compile Include="LabelManager.xaml.cs">
       <DependentUpon>LabelManager.xaml</DependentUpon>
     </Compile>
@@ -116,6 +119,10 @@
     <Compile Include="SearchWindow.xaml.cs">
       <DependentUpon>SearchWindow.xaml</DependentUpon>
     </Compile>
+    <Page Include="DictionaryManager.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="LabelManager.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

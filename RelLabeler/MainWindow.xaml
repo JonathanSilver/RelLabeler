@@ -19,6 +19,9 @@
                     <Separator/>
                     <MenuItem Header="Entity _Label Manager" Name="EntityLabelManagerButton" Click="EntityLabelManagerButton_Click" IsEnabled="False"/>
                     <!--<MenuItem Header="_Predicate Label Manager" Name="PredicateLabelManagerButton" Click="PredicateLabelManagerButton_Click" IsEnabled="False"/>-->
+                    <Separator/>
+                    <MenuItem Header="_Stopwords Manager" Name="StopwordsManagerButton" Click="StopwordsManagerButton_Click" IsEnabled="False"/>
+                    <MenuItem Header="_Hints Manager" Name="HintsManagerButton" Click="HintsManagerButton_Click" IsEnabled="False"/>
                 </MenuItem>
             </Menu>
             <Grid>

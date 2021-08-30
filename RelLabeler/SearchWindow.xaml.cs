@@ -103,9 +103,17 @@ namespace RelLabeler
                     {
                         while (reader.Read())
                         {
-                            var data = JsonSerializer.Deserialize<
-                                List<Tuple<string, string, string, string, string, string>>
-                                >(reader.GetString(1));
+                            List<Tuple<string, string, string, string, string, string>> data;
+                            if (reader.GetString(1) == "")
+                            {
+                                data = new List<Tuple<string, string, string, string, string, string>>();
+                            }
+                            else
+                            {
+                                data = JsonSerializer.Deserialize<
+                                    List<Tuple<string, string, string, string, string, string>>
+                                    >(reader.GetString(1));
+                            }
                             string matched = "";
                             foreach (var record in data)
                             {
@@ -137,7 +145,7 @@ namespace RelLabeler
         {
             mainWindow.searchWindow = null;
 
-            mainWindow.ReloadText();
+            //mainWindow.ReloadText();
         }
 
         private void SearchButton_Click(object sender, RoutedEventArgs e)

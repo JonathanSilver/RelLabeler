@@ -28,25 +28,23 @@ namespace RelLabeler
         readonly List<Tuple<string, string>> entityLabels = new List<Tuple<string, string>>();
         readonly List<Tuple<string, string>> predicateLabels = new List<Tuple<string, string>>();
 
+        readonly List<string> hints = new List<string>();
+        readonly List<string> stopwords = new List<string>();
+        readonly HashSet<string> appearedHints = new HashSet<string>();
+        readonly HashSet<string> appearedStopwords = new HashSet<string>();
+
         public SearchWindow searchWindow = null;
+
+        public DictionaryManager hintsManager = null;
+        public DictionaryManager stopwordsManager = null;
+
+        public readonly string MetaName = ".rldb-meta";
+        public string metaPath;
 
         public string filePath;
         public int idx = -1;
 
         string currentText;
-
-        void Clear()
-        {
-            filePath = null;
-            idx = -1;
-            records.Clear();
-            entityLabels.Clear();
-            RecordsList.Items.Clear();
-            SelectedSentence.Items.Clear();
-
-            currentText = "";
-            SentenceText.Document.Blocks.Clear();
-        }
 
         void CreateLabelTable(SqliteConnection connection)
         {
@@ -91,7 +89,7 @@ namespace RelLabeler
         {
             entityLabels.Clear();
             predicateLabels.Clear();
-            using (var connection = new SqliteConnection($"Data Source={filePath}"))
+            using (var connection = new SqliteConnection($"Data Source={metaPath}"))
             {
                 connection.Open();
                 try
@@ -120,6 +118,158 @@ namespace RelLabeler
                     control.LoadLabels();
                 }
             }
+        }
+        
+        void CreateDictionaryTable(SqliteConnection connection)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+                drop table if exists dictionary;
+            ";
+            command.ExecuteNonQuery();
+            command.CommandText = @"
+                create table dictionary (
+                    name text not null,
+                    type int not null
+                );
+            ";
+            command.ExecuteNonQuery();
+        }
+
+        List<string> GetWords(SqliteConnection connection, int type)
+        {
+            // if type == 0, return stopwords,
+            // otherwise, return hints
+            List<string> words = new List<string>();
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+                select name from dictionary where type = $type;
+            ";
+            command.Parameters.AddWithValue("$type", type);
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    words.Add(reader.GetString(0));
+                }
+            }
+            return words;
+        }
+
+        void GetAppearedWords()
+        {
+            if (idx != -1)
+            {
+                appearedStopwords.Clear();
+                appearedHints.Clear();
+                foreach (var word in stopwords)
+                {
+                    if (currentText.Contains(word))
+                    {
+                        appearedStopwords.Add(word);
+                    }
+                }
+                foreach (var word in hints)
+                {
+                    if (currentText.Contains(word))
+                    {
+                        appearedHints.Add(word);
+                    }
+                }
+            }
+        }
+
+        void LoadWords()
+        {
+            stopwords.Clear();
+            hints.Clear();
+            using (var connection = new SqliteConnection($"Data Source={metaPath}"))
+            {
+                connection.Open();
+                try
+                {
+                    stopwords.AddRange(GetWords(connection, 0));
+                }
+                catch (SqliteException)
+                {
+                    // assume this is triggered by missing the table
+                    CreateDictionaryTable(connection);
+                    stopwords.AddRange(GetWords(connection, 0));
+                }
+                hints.AddRange(GetWords(connection, 1));
+            }
+
+            if (stopwordsManager != null)
+                stopwordsManager.LoadWords();
+            if (hintsManager != null)
+                hintsManager.LoadWords();
+
+            GetAppearedWords();
+            ReloadText();
+        }
+
+        public void AddWord(string word, int type)
+        {
+            if (type == 0)
+            {
+                if (stopwords.Contains(word))
+                {
+                    return;
+                }
+            }
+            else
+            {
+                if (hints.Contains(word))
+                {
+                    return;
+                }
+            }
+            using (var connection = new SqliteConnection($"Data Source={metaPath}"))
+            {
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = @"
+                        insert into dictionary (name, type) values ($name, $type);
+                    ";
+                    command.Parameters.AddWithValue("$name", word);
+                    command.Parameters.AddWithValue("$type", type);
+                    command.ExecuteNonQuery();
+                }
+            }
+            LoadWords();
+        }
+
+        public void RemoveWord(string word, int type)
+        {
+            if (type == 0)
+            {
+                if (!stopwords.Contains(word))
+                {
+                    return;
+                }
+            }
+            else
+            {
+                if (!hints.Contains(word))
+                {
+                    return;
+                }
+            }
+            using (var connection = new SqliteConnection($"Data Source={metaPath}"))
+            {
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = @"
+                        delete from dictionary where name = $name and type = $type;
+                    ";
+                    command.Parameters.AddWithValue("$name", word);
+                    command.Parameters.AddWithValue("$type", type);
+                    command.ExecuteNonQuery();
+                }
+            }
+            LoadWords();
         }
 
         void SaveCurrentRecords()
@@ -157,6 +307,11 @@ namespace RelLabeler
             }
         }
 
+        static void SortEntities(List<string> entities)
+        {
+            entities.Sort((x, y) => x.Length == y.Length ? x.CompareTo(y) : y.Length - x.Length);
+        }
+
         List<string> GetEntities()
         {
             List<string> entities = new List<string>();
@@ -164,12 +319,84 @@ namespace RelLabeler
             {
                 entities.Add(record.Subject);
             }
-            entities.Sort((x, y) => x.Length == y.Length ? x.CompareTo(y) : y.Length - x.Length);
+            SortEntities(entities);
+            //MessageBox.Show(String.Join(", ", entities));
             return entities;
+        }
+
+        void SetStyle(List<string> words, DependencyProperty property, object value)
+        {
+            SortEntities(words);
+            int last = 0;
+            while (true)
+            {
+                TextPointer position = SentenceText.Document.ContentStart;
+                string s = "";
+                int idx = 0;
+                int end = -1;
+                TextPointer startPointer = null;
+                bool updated = false;
+                while (position != null)
+                {
+                    bool found = false;
+                    if (position.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+                    {
+                        string textRun = position.GetTextInRun(LogicalDirection.Forward);
+                        s += textRun;
+                        int start = idx;
+                        while (idx < s.Length)
+                        {
+                            if (idx == end)
+                            {
+                                TextPointer endPointer = position.GetPositionAtOffset(idx - start);
+                                TextRange range = new TextRange(startPointer, endPointer);
+                                range.ApplyPropertyValue(property, value);
+                                last = end;
+                                found = true;
+                                break;
+                            }
+                            if (end == -1 && idx >= last)
+                            {
+                                foreach (var text in words)
+                                {
+                                    if (idx + text.Length <= currentText.Length && currentText.Substring(idx, text.Length) == text)
+                                    {
+                                        startPointer = position.GetPositionAtOffset(idx - start);
+                                        end = idx + text.Length;
+                                        break;
+                                    }
+                                }
+                            }
+                            idx++;
+                        }
+                    }
+                    if (found)
+                    {
+                        updated = true;
+                        break;
+                    }
+                    position = position.GetNextContextPosition(LogicalDirection.Forward);
+                }
+                if (!updated)
+                {
+                    break;
+                }
+            }
+        }
+
+        void SetHints(List<string> words)
+        {
+            SetStyle(words, Inline.TextDecorationsProperty, TextDecorations.Underline);
+        }
+
+        void SetStopwords(List<string> words)
+        {
+            SetStyle(words, Inline.TextDecorationsProperty, TextDecorations.Strikethrough);
         }
 
         void GetDocument()
         {
+            if (idx == -1) return;
             foreach (var record in records)
             {
                 record.Controls.Clear();
@@ -325,6 +552,11 @@ namespace RelLabeler
             FlowDocument document = new FlowDocument();
             document.Blocks.Add(paragraph);
             SentenceText.Document = document;
+
+            // display stopwords & hints
+
+            SetHints(new List<string>(appearedHints));
+            SetStopwords(new List<string>(appearedStopwords));
         }
 
         public void ReloadText()
@@ -379,6 +611,7 @@ namespace RelLabeler
                         }
 
                         currentText = reader.GetString(1);
+                        GetAppearedWords();
                         GetDocument();
                     }
                     if (reader.Read())
@@ -411,8 +644,21 @@ namespace RelLabeler
             {
                 SaveCurrentRecords();
             }
-            Clear();
+
+            idx = -1;
+            records.Clear();
+            entityLabels.Clear();
+            RecordsList.Items.Clear();
+            SelectedSentence.Items.Clear();
+
+            currentText = "";
+            SentenceText.Document.Blocks.Clear();
+
             filePath = fileName;
+
+            FileInfo info = new FileInfo(fileName);
+            metaPath = Path.Combine(info.Directory.FullName, MetaName);
+
             if (filePath.EndsWith(".db"))
             {
                 using (var connection = new SqliteConnection($"Data Source={filePath}"))
@@ -509,7 +755,6 @@ namespace RelLabeler
                 }
             }
 
-            //SaveButton.IsEnabled = true;
             ExportButton.IsEnabled = true;
             EntityLabelManagerButton.IsEnabled = true;
             //PredicateLabelManagerButton.IsEnabled = true;
@@ -517,12 +762,14 @@ namespace RelLabeler
             PreviousSentenceButton.IsEnabled = true;
             SelectedSentence.IsEnabled = true;
             NextSentenceButton.IsEnabled = true;
-            //NewRecordButton.IsEnabled = true;
-            //DeleteRecordButton.IsEnabled = true;
 
             SearchButton.IsEnabled = true;
+            StopwordsManagerButton.IsEnabled = true;
+            HintsManagerButton.IsEnabled = true;
 
             LoadLabels();
+
+            LoadWords();
         }
 
         private void SelectedSentence_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -553,6 +800,22 @@ namespace RelLabeler
             searchWindow.Show();
             searchWindow.Activate();
         }
+
+        void ShowStopwordsManager()
+        {
+            if (stopwordsManager == null)
+                stopwordsManager = new DictionaryManager(this, stopwords, 0);
+            stopwordsManager.Show();
+            stopwordsManager.Activate();
+        }
+
+        void ShowHintsManager()
+        {
+            if (hintsManager == null)
+                hintsManager = new DictionaryManager(this, hints, 1);
+            hintsManager.Show();
+            hintsManager.Activate();
+        }
         
         private void SentenceText_KeyDown(object sender, KeyEventArgs e)
         {
@@ -572,6 +835,42 @@ namespace RelLabeler
                 {
                     searchWindow.SearchBox.Text = SentenceText.Selection.Text;
                     searchWindow.Search();
+                }
+            }
+            else if (e.Key == Key.Q && Keyboard.IsKeyDown(Key.LeftCtrl))
+            {
+                string text = SentenceText.Selection.Text;
+                if (text != "")
+                {
+                    ShowStopwordsManager();
+                    if (Keyboard.IsKeyDown(Key.LeftShift)) // remove
+                    {
+                        RemoveWord(text, 0);
+                        stopwordsManager.WordBox.Text = text;
+                    }
+                    else // add
+                    {
+                        AddWord(text, 0);
+                        stopwordsManager.WordList.SelectedItem = text;
+                    }
+                }
+            }
+            else if (e.Key == Key.W && Keyboard.IsKeyDown(Key.LeftCtrl))
+            {
+                string text = SentenceText.Selection.Text;
+                if (text != "")
+                {
+                    ShowHintsManager();
+                    if (Keyboard.IsKeyDown(Key.LeftShift)) // remove
+                    {
+                        RemoveWord(text, 1);
+                        hintsManager.WordBox.Text = text;
+                    }
+                    else // add
+                    {
+                        AddWord(text, 1);
+                        hintsManager.WordList.SelectedItem = text;
+                    }
                 }
             }
         }
@@ -746,7 +1045,7 @@ namespace RelLabeler
                     }
                 }
 
-                GetDocument();
+                ReloadText();
             }
         }
 
@@ -852,6 +1151,8 @@ namespace RelLabeler
                     searchWindow.Close();
                 }
             }
+            if (stopwordsManager != null) stopwordsManager.Close();
+            if (hintsManager != null) hintsManager.Close();
             if (idx != -1)
             {
                 SaveCurrentRecords();
@@ -860,19 +1161,29 @@ namespace RelLabeler
 
         private void EntityLabelManagerButton_Click(object sender, RoutedEventArgs e)
         {
-            new LabelManager(filePath, entityLabels, 0).ShowDialog();
+            new LabelManager(metaPath, entityLabels, 0).ShowDialog();
             LoadLabels();
         }
 
         private void PredicateLabelManagerButton_Click(object sender, RoutedEventArgs e)
         {
-            new LabelManager(filePath, predicateLabels, 1).ShowDialog();
+            new LabelManager(metaPath, predicateLabels, 1).ShowDialog();
             LoadLabels();
         }
 
         private void SearchButton_Click(object sender, RoutedEventArgs e)
         {
             ShowSearch();
+        }
+
+        private void StopwordsManagerButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowStopwordsManager();
+        }
+
+        private void HintsManagerButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowHintsManager();
         }
     }
 }

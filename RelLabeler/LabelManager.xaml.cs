@@ -11,11 +11,11 @@ namespace RelLabeler
     /// </summary>
     public partial class LabelManager : Window
     {
-        public LabelManager(string filePath, List<Tuple<string, string>> labels, int type)
+        public LabelManager(string metaPath, List<Tuple<string, string>> labels, int type)
         {
             InitializeComponent();
 
-            this.filePath = filePath;
+            this.metaPath = metaPath;
             this.labels = labels;
             this.type = type;
 
@@ -35,9 +35,9 @@ namespace RelLabeler
             }
         }
 
-        string filePath;
-        List<Tuple<string, string>> labels;
-        int type;
+        readonly string metaPath;
+        readonly List<Tuple<string, string>> labels;
+        readonly int type;
 
         public static string GetLabelString(Tuple<string, string> label)
         {
@@ -73,7 +73,7 @@ namespace RelLabeler
             {
                 labels.Add(new Tuple<string, string>(labelCode, labelName));
                 LabelList.Items.Add(GetLabelString(labels[labels.Count - 1]));
-                using (var connection = new SqliteConnection($"Data Source={filePath}"))
+                using (var connection = new SqliteConnection($"Data Source={metaPath}"))
                 {
                     connection.Open();
                     var command = connection.CreateCommand();
@@ -104,7 +104,7 @@ namespace RelLabeler
                 string oldLabelName = labels[pos].Item2;
                 labels[pos] = new Tuple<string, string>(newLabelCode, newLabelName);
                 LabelList.Items[pos] = GetLabelString(labels[pos]);
-                using (var connection = new SqliteConnection($"Data Source={filePath}"))
+                using (var connection = new SqliteConnection($"Data Source={metaPath}"))
                 {
                     connection.Open();
                     var command = connection.CreateCommand();
@@ -132,7 +132,7 @@ namespace RelLabeler
                 string labelName = labels[pos].Item2;
                 labels.RemoveAt(pos);
                 LabelList.Items.RemoveAt(pos);
-                using (var connection = new SqliteConnection($"Data Source={filePath}"))
+                using (var connection = new SqliteConnection($"Data Source={metaPath}"))
                 {
                     connection.Open();
                     var command = connection.CreateCommand();
