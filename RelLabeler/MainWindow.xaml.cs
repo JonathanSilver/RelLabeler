@@ -680,6 +680,22 @@ namespace RelLabeler
                     }
                 }
             }
+
+            UpdatePreviousNextButtonStatus();
+        }
+
+        void UpdatePreviousNextButtonStatus()
+        {
+            if (idx == -1)
+            {
+                PreviousSentenceButton.IsEnabled = false;
+                NextSentenceButton.IsEnabled = false;
+            }
+            else
+            {
+                PreviousSentenceButton.IsEnabled = idx > 0;
+                NextSentenceButton.IsEnabled = idx + 1 < SelectedSentence.Items.Count;
+            }
         }
 
         void GoPrevious()
@@ -710,6 +726,9 @@ namespace RelLabeler
             entityLabels.Clear();
             RecordsList.Items.Clear();
             SelectedSentence.Items.Clear();
+
+            PreviousSentenceButton.IsEnabled = false;
+            NextSentenceButton.IsEnabled = false;
 
             currentText = "";
             SentenceText.Document.Blocks.Clear();
@@ -821,9 +840,7 @@ namespace RelLabeler
             EntityLabelManagerButton.IsEnabled = true;
             //PredicateLabelManagerButton.IsEnabled = true;
 
-            PreviousSentenceButton.IsEnabled = true;
             SelectedSentence.IsEnabled = true;
-            NextSentenceButton.IsEnabled = true;
 
             SearchButton.IsEnabled = true;
             StopwordsManagerButton.IsEnabled = true;
