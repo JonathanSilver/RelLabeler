@@ -119,7 +119,7 @@ namespace RelLabeler
                 }
             }
         }
-        
+
         void CreateDictionaryTable(SqliteConnection connection)
         {
             var command = connection.CreateCommand();
@@ -324,9 +324,20 @@ namespace RelLabeler
             return entities;
         }
 
-        void SetStyle(List<string> words, DependencyProperty property, object value)
+        void SetStyle(List<string> words, bool updateRecordsList, Tuple<DependencyProperty, object[]>[] styles)
         {
             SortEntities(words);
+
+            if (updateRecordsList)
+            {
+                foreach (var record in records)
+                {
+                    record.Controls.Clear();
+                }
+                RecordsList.Items.Clear();
+            }
+
+            int[] rotatePtr = new int[styles.Length];
             int last = 0;
             while (true)
             {
@@ -350,7 +361,13 @@ namespace RelLabeler
                             {
                                 TextPointer endPointer = position.GetPositionAtOffset(idx - start);
                                 TextRange range = new TextRange(startPointer, endPointer);
-                                range.ApplyPropertyValue(property, value);
+                                for (int i = 0; i < styles.Length; i++)
+                                {
+                                    var style = styles[i];
+                                    DependencyProperty property = style.Item1;
+                                    object[] values = style.Item2;
+                                    range.ApplyPropertyValue(property, values[(rotatePtr[i]++) % values.Length]);
+                                }
                                 last = end;
                                 found = true;
                                 break;
@@ -361,6 +378,13 @@ namespace RelLabeler
                                 {
                                     if (idx + text.Length <= currentText.Length && currentText.Substring(idx, text.Length) == text)
                                     {
+                                        if (updateRecordsList)
+                                        {
+                                            var record = records.Find((x) => x.Subject == text);
+                                            RecordsList.Items.Add(
+                                                new RecordControl(this, entityLabels, predicateLabels, record));
+                                        }
+
                                         startPointer = position.GetPositionAtOffset(idx - start);
                                         end = idx + text.Length;
                                         break;
@@ -384,172 +408,43 @@ namespace RelLabeler
             }
         }
 
+        void SetStyle(List<string> words, Tuple<DependencyProperty, object[]>[] styles)
+        {
+            SetStyle(words, false, styles);
+        }
+
         void SetHints(List<string> words)
         {
-            SetStyle(words, Inline.TextDecorationsProperty, TextDecorations.Underline);
+            SetStyle(words, new Tuple<DependencyProperty, object[]>[] {
+                new Tuple<DependencyProperty, object[]>(
+                    Inline.TextDecorationsProperty,
+                    new object[] { TextDecorations.Underline }),
+                new Tuple<DependencyProperty, object[]>(
+                    TextElement.BackgroundProperty,
+                    new object[] { Brushes.LightGreen })
+            });
         }
 
         void SetStopwords(List<string> words)
         {
-            SetStyle(words, Inline.TextDecorationsProperty, TextDecorations.Strikethrough);
+            SetStyle(words, new Tuple<DependencyProperty, object[]>[] {
+                new Tuple<DependencyProperty, object[]>(
+                    Inline.TextDecorationsProperty,
+                    new object[] { TextDecorations.Strikethrough }),
+                new Tuple<DependencyProperty, object[]>(
+                    TextElement.BackgroundProperty,
+                    new object[] { Brushes.LightGray })
+            });
         }
 
         void GetDocument()
         {
             if (idx == -1) return;
-            foreach (var record in records)
-            {
-                record.Controls.Clear();
-            }
-            RecordsList.Items.Clear();
-
-            Paragraph paragraph = new Paragraph();
-
-            List<string> entities = GetEntities();
-
-            Color[] c = new Color[] { Colors.Red, Colors.Green, Colors.Blue };
-            int j = 0;
-
-            string word = null;
-            if (searchWindow != null && searchWindow.SearchText != "")
-            {
-                word = searchWindow.SearchText;
-            }
-
-            bool highlight = false;
-            int highlightEnd = -1;
-            for (int i = 0; i < currentText.Length; i++)
-            {
-                if (word != null)
-                {
-                    if (!highlight)
-                    {
-                        if (i + word.Length <= currentText.Length && currentText.Substring(i, word.Length) == word)
-                        {
-                            highlight = true;
-                            highlightEnd = i + word.Length;
-                        }
-                    }
-                    else if (i == highlightEnd)
-                    {
-                        highlight = false;
-                    }
-                }
-                bool found = false;
-                foreach (var e in entities)
-                {
-                    if (i + e.Length <= currentText.Length && currentText.Substring(i, e.Length) == e)
-                    {
-                        var record = records.Find((x) => x.Subject == e);
-                        RecordsList.Items.Add(
-                            new RecordControl(this, entityLabels, predicateLabels, record));
-
-                        Color currC = c[(j++) % c.Length];
-                        if (highlight)
-                        {
-                            if (highlightEnd >= i + e.Length)
-                            {
-                                // 0 [{1 2 3}] 4
-                                Run run = new Run(e);
-                                run.Foreground = new SolidColorBrush(currC);
-                                run.Background = new SolidColorBrush(Colors.Yellow);
-                                Bold bold = new Bold(run);
-                                paragraph.Inlines.Add(bold);
-                            }
-                            else
-                            {
-                                // 0 [{1} 2 3] 4
-                                Run run1 = new Run(currentText.Substring(i, highlightEnd - i));
-                                run1.Foreground = new SolidColorBrush(currC);
-                                run1.Background = new SolidColorBrush(Colors.Yellow);
-                                Bold bold1 = new Bold(run1);
-                                paragraph.Inlines.Add(bold1);
-                                Run run2 = new Run(currentText.Substring(highlightEnd, i + e.Length - highlightEnd));
-                                run2.Foreground = new SolidColorBrush(currC);
-                                Bold bold2 = new Bold(run2);
-                                paragraph.Inlines.Add(bold2);
-                                highlight = false;
-                            }
-                        }
-                        else
-                        {
-                            if (word != null)
-                            {
-                                int highlightBegin = -1;
-                                for (int k = i + 1; k < i + e.Length; k++)
-                                {
-                                    if (k + word.Length <= currentText.Length && currentText.Substring(k, word.Length) == word)
-                                    {
-                                        highlight = true;
-                                        highlightBegin = k;
-                                        highlightEnd = k + word.Length;
-                                        break;
-                                    }
-                                }
-                                if (highlight)
-                                {
-                                    Run run1 = new Run(currentText.Substring(i, highlightBegin - i));
-                                    run1.Foreground = new SolidColorBrush(currC);
-                                    Bold bold1 = new Bold(run1);
-                                    paragraph.Inlines.Add(bold1);
-                                    if (highlightEnd >= i + e.Length)
-                                    {
-                                        // 0 [1 2 {3 4 5}] 6
-                                        Run run2 = new Run(currentText.Substring(highlightBegin, i + e.Length - highlightBegin));
-                                        run2.Foreground = new SolidColorBrush(currC);
-                                        run2.Background = new SolidColorBrush(Colors.Yellow);
-                                        Bold bold2 = new Bold(run2);
-                                        paragraph.Inlines.Add(bold2);
-                                    }
-                                    else
-                                    {
-                                        // 0 [1 2 {3 4 5} 6 7 8 9] 10
-                                        Run run2 = new Run(currentText.Substring(highlightBegin, highlightEnd - highlightBegin));
-                                        run2.Foreground = new SolidColorBrush(currC);
-                                        run2.Background = new SolidColorBrush(Colors.Yellow);
-                                        Bold bold2 = new Bold(run2);
-                                        paragraph.Inlines.Add(bold2);
-                                        Run run3 = new Run(currentText.Substring(highlightEnd, i + e.Length - highlightEnd));
-                                        run3.Foreground = new SolidColorBrush(currC);
-                                        Bold bold3 = new Bold(run3);
-                                        paragraph.Inlines.Add(bold3);
-                                        highlight = false;
-                                    }
-                                }
-                                else
-                                {
-                                    Run run = new Run(e);
-                                    run.Foreground = new SolidColorBrush(currC);
-                                    Bold bold = new Bold(run);
-                                    paragraph.Inlines.Add(bold);
-                                }
-                            }
-                            else
-                            {
-                                Run run = new Run(e);
-                                run.Foreground = new SolidColorBrush(currC);
-                                Bold bold = new Bold(run);
-                                paragraph.Inlines.Add(bold);
-                            }
-                        }
-
-                        found = true;
-                        i += e.Length - 1;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    Run run = new Run(currentText[i].ToString());
-                    if (highlight)
-                    {
-                        run.Background = new SolidColorBrush(Colors.Yellow);
-                    }
-                    paragraph.Inlines.Add(run);
-                }
-            }
 
             FlowDocument document = new FlowDocument();
+            Paragraph paragraph = new Paragraph();
+            Run run = new Run(currentText);
+            paragraph.Inlines.Add(run);
             document.Blocks.Add(paragraph);
             SentenceText.Document = document;
 
@@ -557,6 +452,34 @@ namespace RelLabeler
 
             SetHints(new List<string>(appearedHints));
             SetStopwords(new List<string>(appearedStopwords));
+
+            // display entities
+
+            List<string> entities = GetEntities();
+
+            SetStyle(entities, true, new Tuple<DependencyProperty, object[]>[] {
+                new Tuple<DependencyProperty, object[]>(
+                    TextElement.FontWeightProperty,
+                    new object[] { FontWeights.Bold }),
+                new Tuple<DependencyProperty, object[]>(
+                    TextElement.ForegroundProperty,
+                    new object[] { Brushes.Red, Brushes.Green, Brushes.Blue })
+            });
+
+            // display matched search text
+
+            if (searchWindow != null && searchWindow.SearchText != "")
+            {
+                List<string> word = new List<string>
+                {
+                    searchWindow.SearchText
+                };
+                SetStyle(word, new Tuple<DependencyProperty, object[]>[] {
+                    new Tuple<DependencyProperty, object[]>(
+                        TextElement.BackgroundProperty,
+                        new object[] { Brushes.Yellow })
+                });
+            }
         }
 
         public void ReloadText()
@@ -816,7 +739,7 @@ namespace RelLabeler
             hintsManager.Show();
             hintsManager.Activate();
         }
-        
+
         private void SentenceText_KeyDown(object sender, KeyEventArgs e)
         {
             if (idx == -1) return;
