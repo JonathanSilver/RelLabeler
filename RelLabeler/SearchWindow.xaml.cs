@@ -145,7 +145,7 @@ namespace RelLabeler
         {
             mainWindow.searchWindow = null;
 
-            //mainWindow.ReloadText();
+            mainWindow.ReloadText();
         }
 
         private void SearchButton_Click(object sender, RoutedEventArgs e)

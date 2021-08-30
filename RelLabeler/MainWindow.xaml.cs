@@ -156,6 +156,22 @@ namespace RelLabeler
             return words;
         }
 
+        //void CreateCacheTable(SqliteConnection connection)
+        //{
+        //    var command = connection.CreateCommand();
+        //    command.CommandText = @"
+        //        drop table if exists dictionary;
+        //    ";
+        //    command.ExecuteNonQuery();
+        //    command.CommandText = @"
+        //        create table dictionary (
+        //            name text not null,
+        //            type int not null
+        //        );
+        //    ";
+        //    command.ExecuteNonQuery();
+        //}
+
         void GetAppearedWords()
         {
             if (idx != -1)
@@ -354,6 +370,10 @@ namespace RelLabeler
                     {
                         string textRun = position.GetTextInRun(LogicalDirection.Forward);
                         s += textRun;
+                        if (s == currentText)
+                        {
+                            s += " ";
+                        }
                         int start = idx;
                         while (idx < s.Length)
                         {
