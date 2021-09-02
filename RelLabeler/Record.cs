@@ -7,6 +7,9 @@ namespace RelLabeler
         private string subject = "";
         private string subjectType = "";
 
+        public int Start = -1;
+        public int End = -1;
+
         public List<RecordControl> Controls = new List<RecordControl>();
 
         bool isSubjectFlag = false;

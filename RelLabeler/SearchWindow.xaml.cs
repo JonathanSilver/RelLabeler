@@ -26,7 +26,7 @@ namespace RelLabeler
         bool enableSelectionChangedDetection = true;
         public bool enableClosingCheck = true;
 
-        public String SearchText { get; set; }
+        public string SearchText { get; set; }
 
         public SearchWindow(MainWindow mainWindow)
         {
@@ -65,6 +65,7 @@ namespace RelLabeler
             var record = history[historyPointer];
             SearchText = SearchBox.Text = record.Item1;
             mainWindow.OpenFile(record.Item2.Item1, record.Item2.Item2);
+            mainWindow.SelectFirstMatchedText(SearchText);
             result.Clear();
             result.AddRange(record.Item3);
             ResultList.Items.Clear();
@@ -103,21 +104,21 @@ namespace RelLabeler
                     {
                         while (reader.Read())
                         {
-                            List<Tuple<string, string, string, string, string, string>> data;
+                            List<Tuple<string, string, string, string, string, string, Tuple<int, int>>> data;
                             if (reader.GetString(1) == "")
                             {
-                                data = new List<Tuple<string, string, string, string, string, string>>();
+                                data = new List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>();
                             }
                             else
                             {
                                 data = JsonSerializer.Deserialize<
-                                    List<Tuple<string, string, string, string, string, string>>
+                                    List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>
                                     >(reader.GetString(1));
                             }
                             string matched = "";
                             foreach (var record in data)
                             {
-                                if (record.Item1.Contains(SearchBox.Text))
+                                if (record.Item1.ToLower().Contains(SearchBox.Text.ToLower()))
                                 {
                                     if (matched != "")
                                     {
@@ -159,6 +160,7 @@ namespace RelLabeler
             {
                 mainWindow.OpenFile(result[ResultList.SelectedIndex].Item1, result[ResultList.SelectedIndex].Item2, true);
                 mainWindow.Activate();
+                mainWindow.SelectFirstMatchedText(SearchText);
             }
         }
 

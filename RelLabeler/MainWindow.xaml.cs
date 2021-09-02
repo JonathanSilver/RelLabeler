@@ -386,20 +386,21 @@ namespace RelLabeler
             using (var connection = new SqliteConnection($"Data Source={filePath}"))
             {
                 connection.Open();
-                List<Tuple<string, string, string, string, string, string>> data
-                    = new List<Tuple<string, string, string, string, string, string>>();
+                List<Tuple<string, string, string, string, string, string, Tuple<int, int>>> data
+                    = new List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>();
                 foreach (var record in records)
                 {
                     // the order matters!
                     // for forward compatibility
                     data.Add(
-                        new Tuple<string, string, string, string, string, string>(
+                        new Tuple<string, string, string, string, string, string, Tuple<int, int>>(
                             record.Subject,
                             "",
                             "",
                             record.SubjectType,
                             null,
-                            null));
+                            null,
+                            new Tuple<int, int>(record.Start, record.End)));
                 }
                 var command = connection.CreateCommand();
                 command.CommandText = @"
@@ -421,160 +422,53 @@ namespace RelLabeler
             entities.Sort((x, y) => x.Length == y.Length ? x.CompareTo(y) : y.Length - x.Length);
         }
 
-        List<string> GetEntities()
+        TextPointer GetTextPointer(int pos)
         {
-            List<string> entities = new List<string>();
-            foreach (var record in records)
+            string s = "";
+            TextPointer position = SentenceText.Document.ContentStart;
+            while (position != null)
             {
-                entities.Add(record.Subject);
-            }
-            SortEntities(entities);
-            //MessageBox.Show(String.Join(", ", entities));
-            return entities;
-        }
-
-        List<Tuple<int, int>> SetStyle(List<string> words, bool updateRecordsList, Tuple<DependencyProperty, object[]>[] styles, List<Tuple<int, int>> excludePositions = null)
-        {
-            SortEntities(words);
-
-            if (updateRecordsList)
-            {
-                foreach (var record in records)
+                if (position.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
                 {
-                    record.Controls.Clear();
-                }
-                RecordsList.Items.Clear();
-            }
-
-            List<Tuple<int, int>> occurrences = new List<Tuple<int, int>>();
-
-            int[] rotatePtr = new int[styles.Length];
-            int last = 0;
-            while (true)
-            {
-                TextPointer position = SentenceText.Document.ContentStart;
-                string s = "";
-                int idx = 0;
-                int end = -1;
-                TextPointer startPointer = null;
-                bool updated = false;
-                while (position != null)
-                {
-                    bool found = false;
-                    if (position.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+                    int start = s.Length;
+                    string textRun = position.GetTextInRun(LogicalDirection.Forward);
+                    s += textRun;
+                    if (s == currentText)
                     {
-                        string textRun = position.GetTextInRun(LogicalDirection.Forward);
-                        s += textRun;
-                        if (s == currentText)
-                        {
-                            s += " ";
-                        }
-                        int start = idx;
-                        while (idx < s.Length)
-                        {
-                            if (idx == end)
-                            {
-                                TextPointer endPointer = position.GetPositionAtOffset(idx - start);
-                                TextRange range = new TextRange(startPointer, endPointer);
-                                for (int i = 0; i < styles.Length; i++)
-                                {
-                                    var style = styles[i];
-                                    DependencyProperty property = style.Item1;
-                                    object[] values = style.Item2;
-                                    range.ApplyPropertyValue(property, values[(rotatePtr[i]++) % values.Length]);
-                                }
-                                last = end;
-                                found = true;
-                                break;
-                            }
-                            if (end == -1 && idx >= last)
-                            {
-                                foreach (var text in words)
-                                {
-                                    if (idx + text.Length <= currentText.Length && currentText.Substring(idx, text.Length) == text)
-                                    {
-                                        end = idx + text.Length;
-                                        Tuple<int, int> targetPosition = new Tuple<int, int>(idx, end);
-                                        bool interceptAny = false;
-
-                                        if (excludePositions != null)
-                                        {
-                                            foreach (var currentPosition in excludePositions)
-                                            {
-                                                if (Intercept(targetPosition, currentPosition))
-                                                {
-                                                    interceptAny = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-
-                                        if (!interceptAny)
-                                        {
-                                            if (updateRecordsList)
-                                            {
-                                                var record = records.Find((x) => x.Subject == text);
-                                                RecordsList.Items.Add(
-                                                    new RecordControl(this, entityLabels, predicateLabels, record));
-                                            }
-
-                                            startPointer = position.GetPositionAtOffset(idx - start);
-                                            occurrences.Add(targetPosition);
-                                            break;
-                                        }
-                                        else
-                                        {
-                                            end = -1;
-                                        }
-                                    }
-                                }
-                            }
-                            idx++;
-                        }
+                        s += " ";
                     }
-                    if (found)
+                    if (s.Length > pos)
                     {
-                        updated = true;
-                        break;
+                        return position.GetPositionAtOffset(pos - start);
                     }
-                    position = position.GetNextContextPosition(LogicalDirection.Forward);
                 }
-                if (!updated)
+                position = position.GetNextContextPosition(LogicalDirection.Forward);
+            }
+            return null;
+        }
+
+        Tuple<TextPointer, TextPointer> GetRange(Tuple<int, int> pos)
+        {
+            if (pos == null) return null;
+            return new Tuple<TextPointer, TextPointer>(
+                GetTextPointer(pos.Item1),
+                GetTextPointer(pos.Item2));
+        }
+
+        void SetStyle(Tuple<int, int> pos, Tuple<DependencyProperty, object>[] styles)
+        {
+            if (pos == null) return;
+            var range = GetRange(pos);
+            if (range.Item1 != null && range.Item2 != null)
+            {
+                TextRange textRange = new TextRange(range.Item1, range.Item2);
+                foreach (var tuple in styles)
                 {
-                    break;
+                    DependencyProperty property = tuple.Item1;
+                    object value = tuple.Item2;
+                    textRange.ApplyPropertyValue(property, value);
                 }
             }
-
-            return occurrences;
-        }
-
-        List<Tuple<int, int>> SetStyle(List<string> words, Tuple<DependencyProperty, object[]>[] styles, List<Tuple<int, int>> occurrences = null)
-        {
-            return SetStyle(words, false, styles, occurrences);
-        }
-
-        void SetHints(List<string> words, List<Tuple<int, int>> occurrences)
-        {
-            SetStyle(words, new Tuple<DependencyProperty, object[]>[] {
-                new Tuple<DependencyProperty, object[]>(
-                    Inline.TextDecorationsProperty,
-                    new object[] { TextDecorations.Underline }),
-                new Tuple<DependencyProperty, object[]>(
-                    TextElement.BackgroundProperty,
-                    new object[] { Brushes.LightCyan })
-            }, occurrences);
-        }
-
-        List<Tuple<int, int>> SetStopwords(List<string> words)
-        {
-            return SetStyle(words, new Tuple<DependencyProperty, object[]>[] {
-                new Tuple<DependencyProperty, object[]>(
-                    Inline.TextDecorationsProperty,
-                    new object[] { TextDecorations.Strikethrough }),
-                new Tuple<DependencyProperty, object[]>(
-                    TextElement.BackgroundProperty,
-                    new object[] { Brushes.LightGray })
-            });
         }
 
         void GetDocument()
@@ -590,44 +484,153 @@ namespace RelLabeler
 
             // display entities
 
-            List<string> entities = GetEntities();
+            foreach (var record in records)
+            {
+                record.Controls.Clear();
+            }
+            RecordsList.Items.Clear();
 
-            var allEntityOccurrences = SetStyle(entities, true, new Tuple<DependencyProperty, object[]>[] {
-                new Tuple<DependencyProperty, object[]>(
-                    TextElement.FontWeightProperty,
-                    new object[] { FontWeights.Bold }),
-                new Tuple<DependencyProperty, object[]>(
-                    TextElement.ForegroundProperty,
-                    new object[] { Brushes.Blue, Brushes.Green })
-            });
+            List<Tuple<int, int>> allEntityOccurrences = new List<Tuple<int, int>>();
+            Brush[] brushes = new Brush[] { Brushes.Blue, Brushes.Green };
+            int j = 0;
+            records.Sort((x, y) => x.Start - y.Start);
+            foreach (var record in records)
+            {
+                Tuple<int, int> pos = new Tuple<int, int>(record.Start, record.End);
+                SetStyle(pos, new Tuple<DependencyProperty, object>[]
+                {
+                    new Tuple<DependencyProperty, object>(
+                        TextElement.FontWeightProperty, FontWeights.Bold),
+                    new Tuple<DependencyProperty, object>(
+                        TextElement.ForegroundProperty, brushes[(j++) % brushes.Length])
+                });
+                allEntityOccurrences.Add(pos);
+                RecordsList.Items.Add(
+                    new RecordControl(this, entityLabels, predicateLabels, record));
+            }
 
-            // display stopwords & hints
-            SetHints(new List<string>(appearedHints), allEntityOccurrences);
-            //var allStopwordOccurrences = 
-            SetStopwords(new List<string>(appearedStopwords));
-            //allEntityOccurrences.AddRange(allStopwordOccurrences);
+            // display hints
+            List<Tuple<int, int>> hintOccurrences = FindOccurrences(new List<string>(appearedHints), allEntityOccurrences);
+            foreach (var occurrence in hintOccurrences)
+            {
+                SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
+                {
+                    new Tuple<DependencyProperty, object>(
+                        Inline.TextDecorationsProperty, TextDecorations.Underline),
+                    new Tuple<DependencyProperty, object>(
+                        TextElement.BackgroundProperty, Brushes.LightCyan)
+                });
+            }
+
+            // display stopwords
+            List<Tuple<int, int>> stopwordOccurrences = FindOccurrences(new List<string>(appearedStopwords));
+            foreach (var occurrence in stopwordOccurrences)
+            {
+                SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
+                {
+                    new Tuple<DependencyProperty, object>(
+                        Inline.TextDecorationsProperty, TextDecorations.Strikethrough),
+                    new Tuple<DependencyProperty, object>(
+                        TextElement.BackgroundProperty, Brushes.LightGray)
+                });
+            }
 
             // display matched search text
 
             if (searchWindow != null && searchWindow.SearchText != "")
             {
-                List<string> word = new List<string>
+                List<Tuple<int, int>> searchTextOccurrences = FindOccurrences(searchWindow.SearchText, true);
+                foreach (var occurrence in searchTextOccurrences)
                 {
-                    searchWindow.SearchText
-                };
-                SetStyle(word, new Tuple<DependencyProperty, object[]>[] {
-                    new Tuple<DependencyProperty, object[]>(
-                        TextElement.BackgroundProperty,
-                        new object[] { Brushes.Yellow })
-                });
+                    SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
+                    {
+                        new Tuple<DependencyProperty, object>(
+                            TextElement.BackgroundProperty, Brushes.Yellow)
+                    });
+                }
+            }
+        }
+
+        void SelectText(Tuple<int, int> pos)
+        {
+            if (pos == null) return;
+            var range = GetRange(pos);
+            if (range.Item1 != null && range.Item2 != null)
+            {
+                SentenceText.Selection.Select(range.Item1, range.Item2);
+            }
+        }
+
+        List<Tuple<int, int>> FindOccurrences(string text, bool ignoreCase = false, List<Tuple<int, int>> excludePositions = null)
+        {
+            List<Tuple<int, int>> results = new List<Tuple<int, int>>();
+            for (int i = 0; i < currentText.Length; i++)
+            {
+                if (i + text.Length <= currentText.Length
+                    && (ignoreCase ? currentText.Substring(i, text.Length).ToLower() == text.ToLower()
+                        : currentText.Substring(i, text.Length) == text))
+                {
+                    Tuple<int, int> targetOccurrence = new Tuple<int, int>(i, i + text.Length);
+                    if (excludePositions == null 
+                        || excludePositions.Find((x) => Intercept(targetOccurrence, x)) == null)
+                    {
+                        results.Add(targetOccurrence);
+                        i += text.Length - 1;
+                    }
+                }
+            }
+            return results;
+        }
+
+        List<Tuple<int, int>> FindOccurrences(List<string> entities, List<Tuple<int, int>> excludePositions = null)
+        {
+            SortEntities(entities);
+            List<Tuple<int, int>> results = new List<Tuple<int, int>>();
+            for (int i = 0; i < currentText.Length; i++)
+            {
+                foreach (var e in entities)
+                {
+                    if (i + e.Length <= currentText.Length && currentText.Substring(i, e.Length) == e)
+                    {
+                        Tuple<int, int> targetOccurrence = new Tuple<int, int>(i, i + e.Length);
+                        if (excludePositions == null
+                            || excludePositions.Find((x) => Intercept(targetOccurrence, x)) == null)
+                        {
+                            results.Add(targetOccurrence);
+                            i += e.Length - 1;
+                            break;
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        public void SelectFirstMatchedText(string text)
+        {
+            if (text != "")
+            {
+                var occurrences = FindOccurrences(text, true);
+                if (occurrences.Count > 0)
+                {
+                    SelectText(occurrences[0]);
+                }
             }
         }
 
         public void ReloadText()
         {
+            Tuple<int, int> selectedPos = null;
+            if (SentenceText.Selection.Text != "")
+            {
+                selectedPos = GetOccurrenceOfSelectedText();
+            }
+
             double offset = SentenceText.VerticalOffset;
             GetDocument();
             SentenceText.ScrollToVerticalOffset(offset);
+
+            SelectText(selectedPos);
         }
 
         void SelectSentence(int idx)
@@ -648,33 +651,72 @@ namespace RelLabeler
                 {
                     if (reader.Read())
                     {
-                        List<Tuple<string, string, string, string, string, string>> data;
+                        currentText = reader.GetString(1);
+
+                        List<Tuple<string, string, string, string, string, string, Tuple<int, int>>> data;
                         if (reader.GetString(2) == "")
                         {
-                            data = new List<Tuple<string, string, string, string, string, string>>();
+                            data = new List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>();
                         }
                         else
                         {
                             data = JsonSerializer.Deserialize<
-                                List<Tuple<string, string, string, string, string, string>>
+                                List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>
                                 >(reader.GetString(2));
                         }
 
-                        records.Clear();
+                        bool missingPositions = false;
                         foreach (var tuple in data)
                         {
-                            Record record = new Record
+                            if (tuple.Item7 == null)
                             {
-                                Subject = tuple.Item1,
-                                SubjectType = tuple.Item4
-                            };
-                            if (records.Find((x) => x.Subject == record.Subject) == null)
+                                missingPositions = true;
+                                break;
+                            }
+                        }
+                        records.Clear();
+                        if (missingPositions)
+                        {
+                            Dictionary<string, string> entityType = new Dictionary<string, string>();
+                            foreach (var tuple in data)
                             {
-                                records.Add(record);
+                                entityType[tuple.Item1] = tuple.Item4;
+                            }
+                            List<Tuple<int, int>> occurrences = FindOccurrences(new List<string>(entityType.Keys));
+                            foreach (var pos in occurrences)
+                            {
+                                string subject = currentText.Substring(pos.Item1, pos.Item2 - pos.Item1);
+                                if (entityType.ContainsKey(subject))
+                                {
+                                    Record record = new Record
+                                    {
+                                        Subject = subject,
+                                        SubjectType = entityType[subject],
+                                        Start = pos.Item1,
+                                        End = pos.Item2
+                                    };
+                                    records.Add(record);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            foreach (var tuple in data)
+                            {
+                                Record record = new Record
+                                {
+                                    Subject = tuple.Item1,
+                                    SubjectType = tuple.Item4,
+                                    Start = tuple.Item7.Item1,
+                                    End = tuple.Item7.Item2
+                                };
+                                if (currentText.Substring(record.Start, record.End - record.Start) == record.Subject)
+                                {
+                                    records.Add(record);
+                                }
                             }
                         }
 
-                        currentText = reader.GetString(1);
                         GetAppearedWords();
                         GetDocument();
                     }
@@ -968,38 +1010,6 @@ namespace RelLabeler
             }
         }
 
-        List<Tuple<int, int>> FindOccurrences(string text)
-        {
-            List<Tuple<int, int>> results = new List<Tuple<int, int>>();
-            for (int i = 0; i < currentText.Length; i++)
-            {
-                if (i + text.Length <= currentText.Length && currentText.Substring(i, text.Length) == text)
-                {
-                    results.Add(new Tuple<int, int>(i, i + text.Length));
-                    i += text.Length - 1;
-                }
-            }
-            return results;
-        }
-
-        List<Tuple<int, int>> FindOccurrences(List<string> entities)
-        {
-            List<Tuple<int, int>> results = new List<Tuple<int, int>>();
-            for (int i = 0; i < currentText.Length; i++)
-            {
-                foreach (var e in entities)
-                {
-                    if (i + e.Length <= currentText.Length && currentText.Substring(i, e.Length) == e)
-                    {
-                        results.Add(new Tuple<int, int>(i, i + e.Length));
-                        i += e.Length - 1;
-                        break;
-                    }
-                }
-            }
-            return results;
-        }
-
         static bool Intercept(Tuple<int, int> a, Tuple<int, int> b)
         {
             return !(a.Item2 <= b.Item1 || b.Item2 <= a.Item1);
@@ -1036,117 +1046,70 @@ namespace RelLabeler
 
                 if (selectedText == "") return;
 
-                Record existedRecord = records.Find((x) => x.Subject == selectedText);
-                if (existedRecord != null)
+                Tuple<int, int> targetOccurrence = GetOccurrenceOfSelectedText();
+
+                if (currentText.Substring(targetOccurrence.Item1, targetOccurrence.Item2 - targetOccurrence.Item1) == selectedText)
                 {
-                    records.Remove(existedRecord);
-                }
-                else
-                {
-                    Tuple<int, int> targetOccurrence = GetOccurrenceOfSelectedText();
-
-                    List<string> entities = GetEntities();
-                    List<Tuple<int, int>> allEntitiesOccurrences = FindOccurrences(entities);
-                    Dictionary<string, int> entitiesOccurrences = new Dictionary<string, int>();
-                    foreach (var entityOccurrence in allEntitiesOccurrences)
+                    if (records.RemoveAll((x) => x.Start == targetOccurrence.Item1 && x.End == targetOccurrence.Item2) == 0)
                     {
-                        string s = currentText.Substring(entityOccurrence.Item1, entityOccurrence.Item2 - entityOccurrence.Item1);
-                        if (entitiesOccurrences.ContainsKey(s))
-                        {
-                            entitiesOccurrences[s]++;
-                        }
-                        else
-                        {
-                            entitiesOccurrences.Add(s, 1);
-                        }
-                    }
-
-                    if (currentText.Substring(targetOccurrence.Item1, targetOccurrence.Item2 - targetOccurrence.Item1) == selectedText)
-                    {
-                        foreach (var entityOccurrence in allEntitiesOccurrences)
-                        {
-                            if (Intercept(targetOccurrence, entityOccurrence))
-                            {
-                                string s = currentText.Substring(entityOccurrence.Item1, entityOccurrence.Item2 - entityOccurrence.Item1);
-                                entitiesOccurrences[s]--;
-                                if (entitiesOccurrences[s] == 0)
-                                {
-                                    entitiesOccurrences.Remove(s);
-                                    records.Remove(records.Find((x) => x.Subject == s));
-                                }
-                            }
-                        }
-
+                        records.RemoveAll((x) => Intercept(targetOccurrence, new Tuple<int, int>(x.Start, x.End)));
                         if (cache.ContainsKey(selectedText))
                         {
-                            records.Add(new Record { Subject = selectedText, SubjectType = cache[selectedText] });
+                            records.Add(new Record
+                            {
+                                Subject = selectedText,
+                                SubjectType = cache[selectedText],
+                                Start = targetOccurrence.Item1,
+                                End = targetOccurrence.Item2
+                            });
                         }
                         else
                         {
-                            records.Add(new Record { Subject = selectedText });
+                            records.Add(new Record
+                            {
+                                Subject = selectedText,
+                                Start = targetOccurrence.Item1,
+                                End = targetOccurrence.Item2
+                            });
                             AddOrUpdateCache(selectedText, "");
                             GetAppearedWords();
                         }
-
-                        // remove redundancies
-
-                        entities = GetEntities();
-                        allEntitiesOccurrences = FindOccurrences(entities);
-                        entitiesOccurrences = new Dictionary<string, int>();
-                        foreach (var entityOccurrence in allEntitiesOccurrences)
+                        List<Tuple<int, int>> allEntityOccurrences = new List<Tuple<int, int>>();
+                        foreach (var record in records)
                         {
-                            string s = currentText.Substring(entityOccurrence.Item1, entityOccurrence.Item2 - entityOccurrence.Item1);
-                            if (entitiesOccurrences.ContainsKey(s))
-                            {
-                                entitiesOccurrences[s]++;
-                            }
-                            else
-                            {
-                                entitiesOccurrences.Add(s, 1);
-                            }
+                            allEntityOccurrences.Add(new Tuple<int, int>(record.Start, record.End));
                         }
-                        foreach (var s in entities)
+                        if (!Keyboard.IsKeyDown(Key.LeftCtrl))
                         {
-                            if (!entitiesOccurrences.ContainsKey(s))
+                            List<Tuple<int, int>> targetOccurrences = FindOccurrences(selectedText, false, allEntityOccurrences);
+                            foreach (var occurrence in targetOccurrences)
                             {
-                                records.Remove(records.Find((x) => x.Subject == s));
+                                records.Add(new Record
+                                {
+                                    Subject = selectedText,
+                                    SubjectType = cache[selectedText],
+                                    Start = occurrence.Item1,
+                                    End = occurrence.Item2
+                                });
                             }
                         }
                     }
                     else
                     {
-                        MessageBox.Show(
-                            "An error has occurred! Please report the incident.",
-                            "Error",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Error);
-
-                        List<Tuple<int, int>> selectedTextOccurrences = FindOccurrences(selectedText);
-                        foreach (var occurrence in selectedTextOccurrences)
+                        if (!Keyboard.IsKeyDown(Key.LeftCtrl))
                         {
-                            List<Tuple<int, int>> allEntitiesOccurrences2 = new List<Tuple<int, int>>();
-                            foreach (var entityOccurrence in allEntitiesOccurrences)
-                            {
-                                if (Intercept(occurrence, entityOccurrence))
-                                {
-                                    string s = currentText.Substring(entityOccurrence.Item1, entityOccurrence.Item2 - entityOccurrence.Item1);
-                                    entitiesOccurrences[s]--;
-                                    if (entitiesOccurrences[s] == 0)
-                                    {
-                                        entitiesOccurrences.Remove(s);
-                                        records.Remove(records.Find((x) => x.Subject == s));
-                                    }
-                                }
-                                else
-                                {
-                                    allEntitiesOccurrences2.Add(entityOccurrence);
-                                }
-                            }
-                            allEntitiesOccurrences = allEntitiesOccurrences2;
+                            records.RemoveAll((x) => x.Subject == selectedText);
                         }
-                        records.Add(new Record { Subject = selectedText });
                     }
                 }
+                //else
+                //{
+                //    MessageBox.Show(
+                //        "An error has occurred! Please report the incident.",
+                //        "Error",
+                //        MessageBoxButton.OK,
+                //        MessageBoxImage.Error);
+                //}
 
                 ReloadText();
             }
@@ -1293,6 +1256,14 @@ namespace RelLabeler
         private void HintsManagerButton_Click(object sender, RoutedEventArgs e)
         {
             ShowHintsManager();
+        }
+
+        private void SentenceText_SelectionChanged(object sender, RoutedEventArgs e)
+        {
+            if (SentenceText.Selection.Text != "")
+            {
+                Clipboard.SetText(SentenceText.Selection.Text);
+            }
         }
     }
 }
