@@ -515,7 +515,7 @@ namespace RelLabeler
             }
 
             // display hints
-            List<Tuple<int, int>> hintOccurrences = FindOccurrences(new List<string>(appearedHints), allEntityOccurrences);
+            List<Tuple<int, int>> hintOccurrences = FindOccurrences(new List<string>(appearedHints), false, allEntityOccurrences);
             foreach (var occurrence in hintOccurrences)
             {
                 SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
@@ -546,13 +546,13 @@ namespace RelLabeler
                 Dictionary<string, Record> annotatedDict = new Dictionary<string, Record>();
                 foreach (var record in annotatedRecords)
                 {
-                    if (!annotatedDict.ContainsKey(record.Subject))
+                    if (!annotatedDict.ContainsKey(record.Subject.ToLower()))
                     {
-                        annotatedDict[record.Subject] = record;
+                        annotatedDict[record.Subject.ToLower()] = record;
                     }
                 }
                 HashSet<string> occurredAnnotations = new HashSet<string>();
-                List<Tuple<int, int>> annotationOccurrences = FindOccurrences(annotatedRecords.ConvertAll<string>((x) => x.Subject));
+                List<Tuple<int, int>> annotationOccurrences = FindOccurrences(annotatedRecords.ConvertAll((x) => x.Subject), true);
                 foreach (var occurrence in annotationOccurrences)
                 {
                     SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
@@ -560,7 +560,7 @@ namespace RelLabeler
                         new Tuple<DependencyProperty, object>(
                             TextElement.BackgroundProperty, Brushes.Orange)
                     });
-                    string text = currentText.Substring(occurrence.Item1, occurrence.Item2 - occurrence.Item1);
+                    string text = currentText.Substring(occurrence.Item1, occurrence.Item2 - occurrence.Item1).ToLower();
                     RecordControl control = new RecordControl(this, entityLabels, predicateLabels, annotatedDict[text]);
                     control.SetAsAnnotation();
                     RecordsList.Items.Add(control);
@@ -624,7 +624,7 @@ namespace RelLabeler
             return results;
         }
 
-        List<Tuple<int, int>> FindOccurrences(List<string> entities, List<Tuple<int, int>> excludePositions = null)
+        List<Tuple<int, int>> FindOccurrences(List<string> entities, bool ignoreCase = false, List<Tuple<int, int>> excludePositions = null)
         {
             SortEntities(entities);
             List<Tuple<int, int>> results = new List<Tuple<int, int>>();
@@ -632,7 +632,9 @@ namespace RelLabeler
             {
                 foreach (var e in entities)
                 {
-                    if (i + e.Length <= currentText.Length && currentText.Substring(i, e.Length) == e)
+                    if (i + e.Length <= currentText.Length
+                        && (ignoreCase ? currentText.Substring(i, e.Length).ToLower() == e.ToLower()
+                            : currentText.Substring(i, e.Length) == e))
                     {
                         Tuple<int, int> targetOccurrence = new Tuple<int, int>(i, i + e.Length);
                         if (excludePositions == null
