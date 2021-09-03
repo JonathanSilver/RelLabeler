@@ -35,12 +35,12 @@ namespace RelLabeler
             this.mainWindow = mainWindow;
 
             history.Add(GetCurrentStatus());
-            historyPointer = 0;
+            HistoryPointer = 0;
 
             SearchText = "";
         }
 
-        int historyPointer
+        int HistoryPointer
         {
             get { return _historyPointer; }
             set
@@ -62,7 +62,7 @@ namespace RelLabeler
 
         void RestoreFromHistory()
         {
-            var record = history[historyPointer];
+            var record = history[HistoryPointer];
             SearchText = SearchBox.Text = record.Item1;
             mainWindow.OpenFile(record.Item2.Item1, record.Item2.Item2);
             mainWindow.SelectFirstMatchedText(SearchText);
@@ -83,8 +83,8 @@ namespace RelLabeler
             if (SearchBox.Text == "")
                 return;
 
-            history.RemoveRange(historyPointer + 1, history.Count - historyPointer - 1);
-            history[historyPointer] = GetCurrentStatus();
+            history.RemoveRange(HistoryPointer + 1, history.Count - HistoryPointer - 1);
+            history[HistoryPointer] = GetCurrentStatus();
 
             ResultList.Items.Clear();
             result.Clear();
@@ -118,6 +118,10 @@ namespace RelLabeler
                             string matched = "";
                             foreach (var record in data)
                             {
+                                if (!mainWindow.showAnnotations && record.Item8.GetValueOrDefault(false))
+                                {
+                                    continue;
+                                }
                                 if (record.Item1.ToLower().Contains(SearchBox.Text.ToLower()))
                                 {
                                     if (matched != "")
@@ -137,7 +141,7 @@ namespace RelLabeler
 
             SearchText = SearchBox.Text;
             history.Add(GetCurrentStatus());
-            historyPointer = history.Count - 1;
+            HistoryPointer = history.Count - 1;
 
             mainWindow.ReloadText();
         }
@@ -188,15 +192,15 @@ namespace RelLabeler
 
         private void GoBackButton_Click(object sender, RoutedEventArgs e)
         {
-            history[historyPointer] = GetCurrentStatus();
-            historyPointer--;
+            history[HistoryPointer] = GetCurrentStatus();
+            HistoryPointer--;
             RestoreFromHistory();
         }
 
         private void GoForwardButton_Click(object sender, RoutedEventArgs e)
         {
-            history[historyPointer] = GetCurrentStatus();
-            historyPointer++;
+            history[HistoryPointer] = GetCurrentStatus();
+            HistoryPointer++;
             RestoreFromHistory();
         }
     }
