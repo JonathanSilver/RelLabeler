@@ -722,7 +722,7 @@ namespace RelLabeler
                         if (missingPositions)
                         {
                             Dictionary<string, string> entityType = new Dictionary<string, string>();
-                            foreach (var tuple in data)
+                            foreach (var tuple in data.FindAll((x) => !x.Item8.GetValueOrDefault(false)))
                             {
                                 entityType[tuple.Item1] = tuple.Item4;
                             }
@@ -740,6 +740,16 @@ namespace RelLabeler
                                     };
                                     records.Add(record);
                                 }
+                            }
+                            foreach (var tuple in data.FindAll((x) => x.Item8.GetValueOrDefault(false)))
+                            {
+                                Record record = new Record
+                                {
+                                    Subject = tuple.Item1,
+                                    SubjectType = tuple.Item4,
+                                    Annotated = true
+                                };
+                                records.Add(record);
                             }
                         }
                         else
