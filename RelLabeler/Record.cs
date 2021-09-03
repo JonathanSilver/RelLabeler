@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace RelLabeler
 {
@@ -7,8 +8,9 @@ namespace RelLabeler
         private string subject = "";
         private string subjectType = "";
 
-        public int Start = -1;
-        public int End = -1;
+        public Tuple<int, int> Position = null;
+
+        public bool Annotated = false;
 
         public List<RecordControl> Controls = new List<RecordControl>();
 

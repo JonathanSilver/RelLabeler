@@ -12,7 +12,11 @@
                 <MenuItem Header="_File">
                     <MenuItem Header="_Open" Name="OpenFileButton" Click="OpenFileButton_Click"/>
                     <Separator/>
+                    <MenuItem Header="_Import" Name="ImportButton" Click="ImportButton_Click" IsEnabled="False"/>
                     <MenuItem Header="_Export" Name="ExportButton" Click="ExportButton_Click" IsEnabled="False"/>
+                </MenuItem>
+                <MenuItem Header="_View">
+                    <MenuItem Header="_Show Annotations" Name="ShowAnnotationsButton" IsCheckable="True" IsChecked="False" Checked="ShowAnnotationsButton_Checked" Unchecked="ShowAnnotationsButton_Checked" IsEnabled="False"/>
                 </MenuItem>
                 <MenuItem Header="_Tools">
                     <MenuItem Header="_Search" Name="SearchButton" Click="SearchButton_Click" IsEnabled="False"/>

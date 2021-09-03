@@ -104,15 +104,15 @@ namespace RelLabeler
                     {
                         while (reader.Read())
                         {
-                            List<Tuple<string, string, string, string, string, string, Tuple<int, int>>> data;
+                            List<DataRecord> data;
                             if (reader.GetString(1) == "")
                             {
-                                data = new List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>();
+                                data = new List<DataRecord>();
                             }
                             else
                             {
                                 data = JsonSerializer.Deserialize<
-                                    List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>
+                                    List<DataRecord>
                                     >(reader.GetString(1));
                             }
                             string matched = "";

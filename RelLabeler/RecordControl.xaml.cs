@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace RelLabeler
 {
@@ -26,11 +27,24 @@ namespace RelLabeler
             Subject = record.Subject;
         }
 
-        public MainWindow mainWindow;
+        public readonly MainWindow mainWindow;
+        readonly List<Tuple<string, string>> entityLabels;
+        readonly List<Tuple<string, string>> predicateLabels;
+        readonly Record record;
 
-        List<Tuple<string, string>> entityLabels;
-        List<Tuple<string, string>> predicateLabels;
-        Record record;
+        public void SetAsAnnotation()
+        {
+            SubjectText.Foreground = Brushes.Orange;
+            SubjectType.Foreground = Brushes.Orange;
+            SubjectType.IsEnabled = false;
+        }
+
+        public void SetAsInvisible()
+        {
+            SubjectText.Foreground = Brushes.Red;
+            SubjectType.Foreground = Brushes.Red;
+            SubjectType.IsEnabled = false;
+        }
 
         private void ComboBoxLoad(ComboBox comboBox, List<Tuple<string, string>> labels)
         {

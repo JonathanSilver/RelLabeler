@@ -50,6 +50,8 @@ namespace RelLabeler
 
         string currentText;
 
+        public bool showAnnotations = false;
+
         void CreateLabelTable(SqliteConnection connection)
         {
             var command = connection.CreateCommand();
@@ -386,21 +388,20 @@ namespace RelLabeler
             using (var connection = new SqliteConnection($"Data Source={filePath}"))
             {
                 connection.Open();
-                List<Tuple<string, string, string, string, string, string, Tuple<int, int>>> data
-                    = new List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>();
+                List<DataRecord> data
+                    = new List<DataRecord>();
                 foreach (var record in records)
                 {
                     // the order matters!
                     // for forward compatibility
                     data.Add(
-                        new Tuple<string, string, string, string, string, string, Tuple<int, int>>(
-                            record.Subject,
-                            "",
-                            "",
-                            record.SubjectType,
-                            null,
-                            null,
-                            new Tuple<int, int>(record.Start, record.End)));
+                        new DataRecord
+                        {
+                            Item1 = record.Subject,
+                            Item4 = record.SubjectType,
+                            Item7 = record.Position,
+                            Item8 = record.Annotated
+                        });
                 }
                 var command = connection.CreateCommand();
                 command.CommandText = @"
@@ -493,10 +494,14 @@ namespace RelLabeler
             List<Tuple<int, int>> allEntityOccurrences = new List<Tuple<int, int>>();
             Brush[] brushes = new Brush[] { Brushes.Blue, Brushes.Green };
             int j = 0;
-            records.Sort((x, y) => x.Start - y.Start);
-            foreach (var record in records)
+            List<Record> entityRecords = records.FindAll((x) => !x.Annotated);
+            entityRecords.Sort((x, y)
+                => x.Position.Item1 == y.Position.Item1
+                ? x.Position.Item2 - y.Position.Item2
+                : x.Position.Item1 - y.Position.Item1);
+            foreach (var record in entityRecords)
             {
-                Tuple<int, int> pos = new Tuple<int, int>(record.Start, record.End);
+                Tuple<int, int> pos = record.Position;
                 SetStyle(pos, new Tuple<DependencyProperty, object>[]
                 {
                     new Tuple<DependencyProperty, object>(
@@ -535,6 +540,43 @@ namespace RelLabeler
                 });
             }
 
+            if (showAnnotations)
+            {
+                List<Record> annotatedRecords = records.FindAll((x) => x.Annotated);
+                Dictionary<string, Record> annotatedDict = new Dictionary<string, Record>();
+                foreach (var record in annotatedRecords)
+                {
+                    if (!annotatedDict.ContainsKey(record.Subject))
+                    {
+                        annotatedDict[record.Subject] = record;
+                    }
+                }
+                HashSet<string> occurredAnnotations = new HashSet<string>();
+                List<Tuple<int, int>> annotationOccurrences = FindOccurrences(annotatedRecords.ConvertAll<string>((x) => x.Subject));
+                foreach (var occurrence in annotationOccurrences)
+                {
+                    SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
+                    {
+                        new Tuple<DependencyProperty, object>(
+                            TextElement.BackgroundProperty, Brushes.Orange)
+                    });
+                    string text = currentText.Substring(occurrence.Item1, occurrence.Item2 - occurrence.Item1);
+                    RecordControl control = new RecordControl(this, entityLabels, predicateLabels, annotatedDict[text]);
+                    control.SetAsAnnotation();
+                    RecordsList.Items.Add(control);
+                    occurredAnnotations.Add(text);
+                }
+                foreach (var entry in annotatedDict)
+                {
+                    if (!occurredAnnotations.Contains(entry.Key))
+                    {
+                        RecordControl control = new RecordControl(this, entityLabels, predicateLabels, entry.Value);
+                        control.SetAsInvisible();
+                        RecordsList.Items.Add(control);
+                    }
+                }
+            }
+
             // display matched search text
 
             if (searchWindow != null && searchWindow.SearchText != "")
@@ -571,7 +613,7 @@ namespace RelLabeler
                         : currentText.Substring(i, text.Length) == text))
                 {
                     Tuple<int, int> targetOccurrence = new Tuple<int, int>(i, i + text.Length);
-                    if (excludePositions == null 
+                    if (excludePositions == null
                         || excludePositions.Find((x) => Intercept(targetOccurrence, x)) == null)
                     {
                         results.Add(targetOccurrence);
@@ -633,10 +675,10 @@ namespace RelLabeler
             SelectText(selectedPos);
         }
 
-        void SelectSentence(int idx)
+        void SelectSentence(int idx, bool save = true)
         {
             if (idx == -1) return;
-            SaveCurrentRecords();
+            if (save) SaveCurrentRecords();
             this.idx = idx;
             SelectedSentence.SelectedIndex = idx;
             using (var connection = new SqliteConnection($"Data Source={filePath}"))
@@ -653,22 +695,22 @@ namespace RelLabeler
                     {
                         currentText = reader.GetString(1);
 
-                        List<Tuple<string, string, string, string, string, string, Tuple<int, int>>> data;
+                        List<DataRecord> data;
                         if (reader.GetString(2) == "")
                         {
-                            data = new List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>();
+                            data = new List<DataRecord>();
                         }
                         else
                         {
                             data = JsonSerializer.Deserialize<
-                                List<Tuple<string, string, string, string, string, string, Tuple<int, int>>>
+                                List<DataRecord>
                                 >(reader.GetString(2));
                         }
 
                         bool missingPositions = false;
                         foreach (var tuple in data)
                         {
-                            if (tuple.Item7 == null)
+                            if (tuple.Item7 == null && tuple.Item8 == null)
                             {
                                 missingPositions = true;
                                 break;
@@ -692,8 +734,7 @@ namespace RelLabeler
                                     {
                                         Subject = subject,
                                         SubjectType = entityType[subject],
-                                        Start = pos.Item1,
-                                        End = pos.Item2
+                                        Position = pos
                                     };
                                     records.Add(record);
                                 }
@@ -707,10 +748,11 @@ namespace RelLabeler
                                 {
                                     Subject = tuple.Item1,
                                     SubjectType = tuple.Item4,
-                                    Start = tuple.Item7.Item1,
-                                    End = tuple.Item7.Item2
+                                    Position = tuple.Item7,
+                                    Annotated = tuple.Item8.GetValueOrDefault(false)
                                 };
-                                if (currentText.Substring(record.Start, record.End - record.Start) == record.Subject)
+                                if (record.Annotated || !record.Annotated
+                                    && currentText.Substring(record.Position.Item1, record.Position.Item2 - record.Position.Item1) == record.Subject)
                                 {
                                     records.Add(record);
                                 }
@@ -882,6 +924,7 @@ namespace RelLabeler
                 }
             }
 
+            ImportButton.IsEnabled = true;
             ExportButton.IsEnabled = true;
             EntityLabelManagerButton.IsEnabled = true;
             //PredicateLabelManagerButton.IsEnabled = true;
@@ -891,6 +934,8 @@ namespace RelLabeler
             SearchButton.IsEnabled = true;
             StopwordsManagerButton.IsEnabled = true;
             HintsManagerButton.IsEnabled = true;
+
+            ShowAnnotationsButton.IsEnabled = true;
 
             LoadLabels();
 
@@ -1050,17 +1095,16 @@ namespace RelLabeler
 
                 if (currentText.Substring(targetOccurrence.Item1, targetOccurrence.Item2 - targetOccurrence.Item1) == selectedText)
                 {
-                    if (records.RemoveAll((x) => x.Start == targetOccurrence.Item1 && x.End == targetOccurrence.Item2) == 0)
+                    if (records.RemoveAll((x) => !x.Annotated && targetOccurrence.Equals(x.Position)) == 0)
                     {
-                        records.RemoveAll((x) => Intercept(targetOccurrence, new Tuple<int, int>(x.Start, x.End)));
+                        records.RemoveAll((x) => !x.Annotated && Intercept(targetOccurrence, x.Position));
                         if (cache.ContainsKey(selectedText))
                         {
                             records.Add(new Record
                             {
                                 Subject = selectedText,
                                 SubjectType = cache[selectedText],
-                                Start = targetOccurrence.Item1,
-                                End = targetOccurrence.Item2
+                                Position = targetOccurrence
                             });
                         }
                         else
@@ -1068,16 +1112,15 @@ namespace RelLabeler
                             records.Add(new Record
                             {
                                 Subject = selectedText,
-                                Start = targetOccurrence.Item1,
-                                End = targetOccurrence.Item2
+                                Position = targetOccurrence
                             });
                             AddOrUpdateCache(selectedText, "");
                             GetAppearedWords();
                         }
                         List<Tuple<int, int>> allEntityOccurrences = new List<Tuple<int, int>>();
-                        foreach (var record in records)
+                        foreach (var record in records.FindAll((x) => !x.Annotated))
                         {
-                            allEntityOccurrences.Add(new Tuple<int, int>(record.Start, record.End));
+                            allEntityOccurrences.Add(record.Position);
                         }
                         if (!Keyboard.IsKeyDown(Key.LeftCtrl))
                         {
@@ -1088,8 +1131,7 @@ namespace RelLabeler
                                 {
                                     Subject = selectedText,
                                     SubjectType = cache[selectedText],
-                                    Start = occurrence.Item1,
-                                    End = occurrence.Item2
+                                    Position = occurrence
                                 });
                             }
                         }
@@ -1098,7 +1140,7 @@ namespace RelLabeler
                     {
                         if (!Keyboard.IsKeyDown(Key.LeftCtrl))
                         {
-                            records.RemoveAll((x) => x.Subject == selectedText);
+                            records.RemoveAll((x) => !x.Annotated && x.Subject == selectedText);
                         }
                     }
                 }
@@ -1131,8 +1173,10 @@ namespace RelLabeler
 
         private void ExportButton_Click(object sender, RoutedEventArgs e)
         {
-            if (idx == -1) return;
-            SaveCurrentRecords();
+            if (idx != -1)
+            {
+                SaveCurrentRecords();
+            }
             Microsoft.Win32.SaveFileDialog saveFileDialog = new Microsoft.Win32.SaveFileDialog
             {
                 DefaultExt = ".json",
@@ -1144,51 +1188,56 @@ namespace RelLabeler
                 var file = saveFileDialog.OpenFile();
                 using (StreamWriter writer = new StreamWriter(file))
                 {
-                    using (var connection = new SqliteConnection($"Data Source={filePath}"))
+                    FileInfo fileInfo = new FileInfo(filePath);
+                    foreach (var f in fileInfo.Directory.GetFiles("*.db"))
                     {
-                        connection.Open();
-                        var command = connection.CreateCommand();
-                        command.CommandText = @"
-                            select * from data where line_id is not null order by line_id;
-                        ";
-                        using (var reader = command.ExecuteReader())
+                        using (var connection = new SqliteConnection($"Data Source={f.FullName}"))
                         {
-                            while (reader.Read())
+                            connection.Open();
+                            var command = connection.CreateCommand();
+                            command.CommandText = @"
+                                select * from data where line_id is not null order by line_id;
+                            ";
+                            using (var reader = command.ExecuteReader())
                             {
-                                List<Tuple<string, string, string, string, string, string>> list;
-                                if (reader.GetString(2) == "")
+                                while (reader.Read())
                                 {
-                                    list = new List<Tuple<string, string, string, string, string, string>>();
-                                }
-                                else
-                                {
-                                    list = JsonSerializer.Deserialize<
-                                        List<Tuple<string, string, string, string, string, string>>
-                                        >(reader.GetString(2));
-                                }
-                                List<Dictionary<string, string>> res = new List<Dictionary<string, string>>();
-                                foreach (var tuple in list)
-                                {
-                                    res.Add(new Dictionary<string, string>
+                                    List<DataRecord> list;
+                                    if (reader.GetString(2) == "")
                                     {
-                                        { "subject", tuple.Item1 },
-                                        { "predicate", tuple.Item2 },
-                                        { "object", tuple.Item3 },
-                                        { "subject_type", tuple.Item4 },
-                                        { "object_type", tuple.Item5 },
-                                        { "predicate_type", tuple.Item6 }
-                                    });
-                                }
-                                Dictionary<string, object> data = new Dictionary<string, object>
-                                {
-                                    { "text", reader.GetString(1) },
-                                    { "spos", res }
-                                };
-                                writer.WriteLine(JsonSerializer.Serialize(data,
-                                    new JsonSerializerOptions
+                                        list = new List<DataRecord>();
+                                    }
+                                    else
                                     {
-                                        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
-                                    }));
+                                        list = JsonSerializer.Deserialize<
+                                            List<DataRecord>
+                                            >(reader.GetString(2));
+                                    }
+                                    List<Entity> entities = new List<Entity>();
+                                    foreach (var tuple in list)
+                                    {
+                                        if (showAnnotations || !tuple.Item8.GetValueOrDefault(false))
+                                        {
+                                            entities.Add(new Entity
+                                            {
+                                                Name = tuple.Item1,
+                                                Type = tuple.Item4
+                                            });
+                                        }
+                                    }
+                                    Annotation annotation = new Annotation
+                                    {
+                                        FileName = f.Name,
+                                        LineID = reader.GetInt32(0),
+                                        Text = reader.GetString(1),
+                                        Entities = entities
+                                    };
+                                    writer.WriteLine(JsonSerializer.Serialize(annotation,
+                                        new JsonSerializerOptions
+                                        {
+                                            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+                                        }));
+                                }
                             }
                         }
                     }
@@ -1264,6 +1313,143 @@ namespace RelLabeler
             {
                 Clipboard.SetText(SentenceText.Selection.Text);
             }
+        }
+
+        private void ImportButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (idx != -1)
+            {
+                SaveCurrentRecords();
+            }
+            Microsoft.Win32.OpenFileDialog openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Json files (*.json)|*.json|All files (*.*)|*.*",
+                Multiselect = false,
+                CheckFileExists = true
+            };
+            if (openFileDialog.ShowDialog() == true)
+            {
+                Dictionary<string, List<Annotation>> annotationDict = new Dictionary<string, List<Annotation>>();
+                try
+                {
+                    using (StreamReader reader = new StreamReader(openFileDialog.OpenFile()))
+                    {
+                        while (reader.Peek() != -1)
+                        {
+                            string text = reader.ReadLine();
+                            if (text != "")
+                            {
+                                Annotation annotation = JsonSerializer.Deserialize<Annotation>(text);
+                                if (annotation.FileName != null && annotation.Entities != null)
+                                {
+                                    if (!annotationDict.ContainsKey(annotation.FileName))
+                                    {
+                                        annotationDict[annotation.FileName] = new List<Annotation>();
+                                    }
+                                    annotationDict[annotation.FileName].Add(annotation);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    MessageBox.Show(
+                        "Import failed. Check file format.",
+                        "Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return;
+                }
+                FileInfo fileInfo = new FileInfo(filePath);
+                string dirName = fileInfo.Directory.FullName;
+                List<string> existedFileNames = new List<string>();
+                Dictionary<string, string> mapFullName = new Dictionary<string, string>();
+                foreach (var file in annotationDict.Keys)
+                {
+                    string name = Path.Combine(dirName, file);
+                    if (File.Exists(name))
+                    {
+                        existedFileNames.Add(file);
+                        mapFullName[file] = name;
+                    }
+                }
+                existedFileNames.Sort();
+                foreach (var file in existedFileNames)
+                {
+                    string name = mapFullName[file];
+                    List<Annotation> annotations = annotationDict[file];
+                    annotations.Sort((x, y) => x.LineID - y.LineID);
+                    int annotationPointer = 0;
+                    using (var connection = new SqliteConnection($"Data Source={name}"))
+                    {
+                        connection.Open();
+                        var command = connection.CreateCommand();
+                        command.CommandText = @"
+                                select * from data where line_id is not null order by line_id;
+                            ";
+                        using (var reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                int lineID = reader.GetInt32(0);
+                                while (annotationPointer < annotations.Count && annotations[annotationPointer].LineID < lineID)
+                                {
+                                    annotationPointer++;
+                                }
+                                if (annotationPointer >= annotations.Count)
+                                {
+                                    break;
+                                }
+                                if (annotations[annotationPointer].LineID != lineID)
+                                {
+                                    continue;
+                                }
+                                List<DataRecord> list;
+                                if (reader.GetString(2) == "")
+                                {
+                                    list = new List<DataRecord>();
+                                }
+                                else
+                                {
+                                    list = JsonSerializer.Deserialize<
+                                        List<DataRecord>
+                                        >(reader.GetString(2));
+                                }
+                                list = list.FindAll((x) => !x.Item8.GetValueOrDefault(false));
+                                foreach (var entity in annotations[annotationPointer].Entities)
+                                {
+                                    list.Add(new DataRecord
+                                    {
+                                        Item1 = entity.Name,
+                                        Item4 = entity.Type,
+                                        Item8 = true
+                                    });
+                                }
+                                var command2 = connection.CreateCommand();
+                                command2.CommandText = @"
+                                    update data set relations = $data where line_id = $line_id;
+                                ";
+                                command2.Parameters.AddWithValue("$data",
+                                    JsonSerializer.Serialize(list,
+                                    new JsonSerializerOptions
+                                    {
+                                        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+                                    }));
+                                command2.Parameters.AddWithValue("$line_id", lineID);
+                                command2.ExecuteNonQuery();
+                            }
+                        }
+                    }
+                }
+                SelectSentence(idx, false);
+            }
+        }
+
+        private void ShowAnnotationsButton_Checked(object sender, RoutedEventArgs e)
+        {
+            showAnnotations = !showAnnotations;
+            ReloadText();
         }
     }
 }

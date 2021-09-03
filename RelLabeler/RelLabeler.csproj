@@ -106,9 +106,12 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Annotation.cs" />
+    <Compile Include="DataRecord.cs" />
     <Compile Include="DictionaryManager.xaml.cs">
       <DependentUpon>DictionaryManager.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Entity.cs" />
     <Compile Include="LabelManager.xaml.cs">
       <DependentUpon>LabelManager.xaml</DependentUpon>
     </Compile>
