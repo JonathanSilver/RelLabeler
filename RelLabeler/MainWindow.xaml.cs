@@ -698,7 +698,7 @@ namespace RelLabeler
                         }
 
                         records.Clear();
-                        if (data.Find((x) => x.Item7 == null) != null)
+                        if (data.Find((x) => !x.Item8.GetValueOrDefault(false) && x.Item7 == null) != null)
                         {
                             Dictionary<string, string> entityType = new Dictionary<string, string>();
                             foreach (var tuple in data.FindAll((x) => !x.Item8.GetValueOrDefault(false)))
@@ -720,20 +720,22 @@ namespace RelLabeler
                                     records.Add(record);
                                 }
                             }
-                            //foreach (var tuple in data.FindAll((x) => x.Item8.GetValueOrDefault(false)))
-                            //{
-                            //    Record record = new Record
-                            //    {
-                            //        Subject = tuple.Item1,
-                            //        SubjectType = tuple.Item4,
-                            //        Annotated = true
-                            //    };
-                            //    records.Add(record);
-                            //}
+                            foreach (var tuple in data.FindAll(
+                                (x) => x.Item8.GetValueOrDefault(false) && x.Item7 != null))
+                            {
+                                Record record = new Record
+                                {
+                                    Subject = tuple.Item1,
+                                    SubjectType = tuple.Item4,
+                                    Position = tuple.Item7,
+                                    Annotated = true
+                                };
+                                records.Add(record);
+                            }
                         }
                         else
                         {
-                            foreach (var tuple in data)
+                            foreach (var tuple in data.FindAll((x) => x.Item7 != null))
                             {
                                 Record record = new Record
                                 {
