@@ -491,15 +491,30 @@ namespace RelLabeler
             }
             RecordsList.Items.Clear();
 
+            records.Sort((x, y)
+                => x.Position.Item1 == y.Position.Item1
+                ? (x.Position.Item2 == y.Position.Item2
+                    ? (x.Annotated ? -1 : 1)
+                    : x.Position.Item2 - y.Position.Item2)
+                : x.Position.Item1 - y.Position.Item1);
+
+            foreach (var record in records)
+            {
+                if (showAnnotations || !record.Annotated)
+                {
+                    RecordControl control = new RecordControl(this, entityLabels, predicateLabels, record);
+                    if (record.Annotated)
+                    {
+                        control.SetAsAnnotation();
+                    }
+                    RecordsList.Items.Add(control);
+                }
+            }
+
             List<Tuple<int, int>> allEntityOccurrences = new List<Tuple<int, int>>();
             Brush[] brushes = new Brush[] { Brushes.Blue, Brushes.Green };
             int j = 0;
-            List<Record> entityRecords = records.FindAll((x) => !x.Annotated);
-            entityRecords.Sort((x, y)
-                => x.Position.Item1 == y.Position.Item1
-                ? x.Position.Item2 - y.Position.Item2
-                : x.Position.Item1 - y.Position.Item1);
-            foreach (var record in entityRecords)
+            foreach (var record in records.FindAll((x) => !x.Annotated))
             {
                 Tuple<int, int> pos = record.Position;
                 SetStyle(pos, new Tuple<DependencyProperty, object>[]
@@ -510,8 +525,6 @@ namespace RelLabeler
                         TextElement.ForegroundProperty, brushes[(j++) % brushes.Length])
                 });
                 allEntityOccurrences.Add(pos);
-                RecordsList.Items.Add(
-                    new RecordControl(this, entityLabels, predicateLabels, record));
             }
 
             // display hints
@@ -542,38 +555,13 @@ namespace RelLabeler
 
             if (showAnnotations)
             {
-                List<Record> annotatedRecords = records.FindAll((x) => x.Annotated);
-                Dictionary<string, Record> annotatedDict = new Dictionary<string, Record>();
-                foreach (var record in annotatedRecords)
+                foreach (var record in records.FindAll((x) => x.Annotated))
                 {
-                    if (!annotatedDict.ContainsKey(record.Subject.ToLower()))
-                    {
-                        annotatedDict[record.Subject.ToLower()] = record;
-                    }
-                }
-                HashSet<string> occurredAnnotations = new HashSet<string>();
-                List<Tuple<int, int>> annotationOccurrences = FindOccurrences(annotatedRecords.ConvertAll((x) => x.Subject), true);
-                foreach (var occurrence in annotationOccurrences)
-                {
-                    SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
+                    SetStyle(record.Position, new Tuple<DependencyProperty, object>[]
                     {
                         new Tuple<DependencyProperty, object>(
                             TextElement.BackgroundProperty, Brushes.Orange)
                     });
-                    string text = currentText.Substring(occurrence.Item1, occurrence.Item2 - occurrence.Item1).ToLower();
-                    RecordControl control = new RecordControl(this, entityLabels, predicateLabels, annotatedDict[text]);
-                    control.SetAsAnnotation();
-                    RecordsList.Items.Add(control);
-                    occurredAnnotations.Add(text);
-                }
-                foreach (var entry in annotatedDict)
-                {
-                    if (!occurredAnnotations.Contains(entry.Key))
-                    {
-                        RecordControl control = new RecordControl(this, entityLabels, predicateLabels, entry.Value);
-                        control.SetAsInvisible();
-                        RecordsList.Items.Add(control);
-                    }
                 }
             }
 
@@ -709,17 +697,8 @@ namespace RelLabeler
                                 >(reader.GetString(2));
                         }
 
-                        bool missingPositions = false;
-                        foreach (var tuple in data)
-                        {
-                            if (tuple.Item7 == null && tuple.Item8 == null)
-                            {
-                                missingPositions = true;
-                                break;
-                            }
-                        }
                         records.Clear();
-                        if (missingPositions)
+                        if (data.Find((x) => x.Item7 == null) != null)
                         {
                             Dictionary<string, string> entityType = new Dictionary<string, string>();
                             foreach (var tuple in data.FindAll((x) => !x.Item8.GetValueOrDefault(false)))
@@ -741,16 +720,16 @@ namespace RelLabeler
                                     records.Add(record);
                                 }
                             }
-                            foreach (var tuple in data.FindAll((x) => x.Item8.GetValueOrDefault(false)))
-                            {
-                                Record record = new Record
-                                {
-                                    Subject = tuple.Item1,
-                                    SubjectType = tuple.Item4,
-                                    Annotated = true
-                                };
-                                records.Add(record);
-                            }
+                            //foreach (var tuple in data.FindAll((x) => x.Item8.GetValueOrDefault(false)))
+                            //{
+                            //    Record record = new Record
+                            //    {
+                            //        Subject = tuple.Item1,
+                            //        SubjectType = tuple.Item4,
+                            //        Annotated = true
+                            //    };
+                            //    records.Add(record);
+                            //}
                         }
                         else
                         {
@@ -763,8 +742,7 @@ namespace RelLabeler
                                     Position = tuple.Item7,
                                     Annotated = tuple.Item8.GetValueOrDefault(false)
                                 };
-                                if (record.Annotated || !record.Annotated
-                                    && currentText.Substring(record.Position.Item1, record.Position.Item2 - record.Position.Item1) == record.Subject)
+                                if (currentText.Substring(record.Position.Item1, record.Position.Item2 - record.Position.Item1) == record.Subject)
                                 {
                                     records.Add(record);
                                 }
@@ -1233,7 +1211,8 @@ namespace RelLabeler
                                             entities.Add(new Entity
                                             {
                                                 Name = tuple.Item1,
-                                                Type = tuple.Item4
+                                                Type = tuple.Item4,
+                                                Position = tuple.Item7
                                             });
                                         }
                                     }
@@ -1405,7 +1384,8 @@ namespace RelLabeler
                             while (reader.Read())
                             {
                                 int lineID = reader.GetInt32(0);
-                                while (annotationPointer < annotations.Count && annotations[annotationPointer].LineID < lineID)
+                                while (annotationPointer < annotations.Count
+                                    && annotations[annotationPointer].LineID < lineID)
                                 {
                                     annotationPointer++;
                                 }
@@ -1413,7 +1393,9 @@ namespace RelLabeler
                                 {
                                     break;
                                 }
-                                if (annotations[annotationPointer].LineID != lineID)
+                                Annotation annotation = annotations[annotationPointer];
+                                if (annotation.LineID != lineID
+                                    || annotation.Text != reader.GetString(1))
                                 {
                                     continue;
                                 }
@@ -1429,12 +1411,13 @@ namespace RelLabeler
                                         >(reader.GetString(2));
                                 }
                                 list = list.FindAll((x) => !x.Item8.GetValueOrDefault(false));
-                                foreach (var entity in annotations[annotationPointer].Entities)
+                                foreach (var entity in annotation.Entities)
                                 {
                                     list.Add(new DataRecord
                                     {
                                         Item1 = entity.Name,
                                         Item4 = entity.Type,
+                                        Item7 = entity.Position,
                                         Item8 = true
                                     });
                                 }

@@ -39,12 +39,12 @@ namespace RelLabeler
             SubjectType.IsEnabled = false;
         }
 
-        public void SetAsInvisible()
-        {
-            SubjectText.Foreground = Brushes.Red;
-            SubjectType.Foreground = Brushes.Red;
-            SubjectType.IsEnabled = false;
-        }
+        //public void SetAsInvisible()
+        //{
+        //    SubjectText.Foreground = Brushes.Red;
+        //    SubjectType.Foreground = Brushes.Red;
+        //    SubjectType.IsEnabled = false;
+        //}
 
         private void ComboBoxLoad(ComboBox comboBox, List<Tuple<string, string>> labels)
         {
