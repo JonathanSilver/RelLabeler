@@ -472,7 +472,7 @@ namespace RelLabeler
             }
         }
 
-        void GetDocument()
+        void GetDocument(bool reloadRecordsList = true)
         {
             if (idx == -1) return;
 
@@ -485,29 +485,49 @@ namespace RelLabeler
 
             // display entities
 
-            foreach (var record in records)
+            if (reloadRecordsList)
             {
-                record.Controls.Clear();
-            }
-            RecordsList.Items.Clear();
-
-            records.Sort((x, y)
-                => x.Position.Item1 == y.Position.Item1
-                ? (x.Position.Item2 == y.Position.Item2
-                    ? (x.Annotated ? -1 : 1)
-                    : x.Position.Item2 - y.Position.Item2)
-                : x.Position.Item1 - y.Position.Item1);
-
-            foreach (var record in records)
-            {
-                if (showAnnotations || !record.Annotated)
+                foreach (var record in records)
                 {
-                    RecordControl control = new RecordControl(this, entityLabels, predicateLabels, record);
+                    record.Controls.Clear();
+                }
+                RecordsList.Items.Clear();
+
+                records.Sort((x, y)
+                    => x.Position.Item1 == y.Position.Item1
+                    ? (x.Position.Item2 == y.Position.Item2
+                        ? (x.Annotated ? -1 : 1)
+                        : x.Position.Item2 - y.Position.Item2)
+                    : x.Position.Item1 - y.Position.Item1);
+
+                foreach (var record in records)
+                {
+                    if (showAnnotations || !record.Annotated)
+                    {
+                        RecordControl control = new RecordControl(this, entityLabels, predicateLabels, record);
+                        if (record.Annotated)
+                        {
+                            control.SetAsAnnotation();
+                        }
+                        RecordsList.Items.Add(control);
+                    }
+                }
+            }
+
+            bool hasHighlightedEntities = false;
+            bool hasHighlightedAnnotations = false;
+            foreach (var record in records)
+            {
+                if (record.Highlight)
+                {
                     if (record.Annotated)
                     {
-                        control.SetAsAnnotation();
+                        hasHighlightedAnnotations = true;
                     }
-                    RecordsList.Items.Add(control);
+                    else
+                    {
+                        hasHighlightedEntities = true;
+                    }
                 }
             }
 
@@ -517,57 +537,68 @@ namespace RelLabeler
             foreach (var record in records.FindAll((x) => !x.Annotated))
             {
                 Tuple<int, int> pos = record.Position;
-                SetStyle(pos, new Tuple<DependencyProperty, object>[]
+                if (!hasHighlightedEntities || record.Highlight)
                 {
-                    new Tuple<DependencyProperty, object>(
-                        TextElement.FontWeightProperty, FontWeights.Bold),
-                    new Tuple<DependencyProperty, object>(
-                        TextElement.ForegroundProperty, brushes[(j++) % brushes.Length])
-                });
+                    SetStyle(pos, new Tuple<DependencyProperty, object>[]
+                    {
+                        //new Tuple<DependencyProperty, object>(
+                        //    TextElement.FontWeightProperty, FontWeights.Bold),
+                        new Tuple<DependencyProperty, object>(
+                            TextElement.ForegroundProperty, brushes[j % brushes.Length])
+                    });
+                }
                 allEntityOccurrences.Add(pos);
+                j++;
             }
 
-            // display hints
-            List<Tuple<int, int>> hintOccurrences = FindOccurrences(new List<string>(appearedHints), false, allEntityOccurrences);
-            foreach (var occurrence in hintOccurrences)
+            if (!hasHighlightedAnnotations && !hasHighlightedEntities)
             {
-                SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
+                // display hints
+                List<Tuple<int, int>> hintOccurrences = FindOccurrences(new List<string>(appearedHints), false, allEntityOccurrences);
+                foreach (var occurrence in hintOccurrences)
                 {
-                    new Tuple<DependencyProperty, object>(
-                        Inline.TextDecorationsProperty, TextDecorations.Underline),
-                    new Tuple<DependencyProperty, object>(
-                        TextElement.BackgroundProperty, Brushes.LightCyan)
-                });
-            }
+                    SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
+                    {
+                        new Tuple<DependencyProperty, object>(
+                            Inline.TextDecorationsProperty, TextDecorations.Underline),
+                        new Tuple<DependencyProperty, object>(
+                            TextElement.BackgroundProperty, Brushes.LightCyan)
+                    });
+                }
 
-            // display stopwords
-            List<Tuple<int, int>> stopwordOccurrences = FindOccurrences(new List<string>(appearedStopwords));
-            foreach (var occurrence in stopwordOccurrences)
-            {
-                SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
+                // display stopwords
+                List<Tuple<int, int>> stopwordOccurrences = FindOccurrences(new List<string>(appearedStopwords));
+                foreach (var occurrence in stopwordOccurrences)
                 {
-                    new Tuple<DependencyProperty, object>(
-                        Inline.TextDecorationsProperty, TextDecorations.Strikethrough),
-                    new Tuple<DependencyProperty, object>(
-                        TextElement.BackgroundProperty, Brushes.LightGray)
-                });
+                    SetStyle(occurrence, new Tuple<DependencyProperty, object>[]
+                    {
+                        new Tuple<DependencyProperty, object>(
+                            Inline.TextDecorationsProperty, TextDecorations.Strikethrough),
+                        new Tuple<DependencyProperty, object>(
+                            TextElement.BackgroundProperty, Brushes.LightGray)
+                    });
+                }
             }
 
             if (showAnnotations)
             {
                 foreach (var record in records.FindAll((x) => x.Annotated))
                 {
-                    SetStyle(record.Position, new Tuple<DependencyProperty, object>[]
+                    if (!hasHighlightedAnnotations || record.Highlight)
                     {
-                        new Tuple<DependencyProperty, object>(
-                            TextElement.BackgroundProperty, Brushes.Orange)
-                    });
+                        SetStyle(record.Position, new Tuple<DependencyProperty, object>[]
+                        {
+                            new Tuple<DependencyProperty, object>(
+                                TextElement.BackgroundProperty, Brushes.Orange)
+                        });
+                    }
                 }
             }
 
             // display matched search text
 
-            if (searchWindow != null && searchWindow.SearchText != "")
+            if (!hasHighlightedAnnotations && !hasHighlightedEntities
+                && searchWindow != null && searchWindow.SearchText != "")
             {
                 List<Tuple<int, int>> searchTextOccurrences = FindOccurrences(searchWindow.SearchText, true);
                 foreach (var occurrence in searchTextOccurrences)
@@ -650,7 +681,7 @@ namespace RelLabeler
             }
         }
 
-        public void ReloadText()
+        public void ReloadText(bool reloadRecordsList = true)
         {
             Tuple<int, int> selectedPos = null;
             if (SentenceText.Selection.Text != "")
@@ -659,7 +690,7 @@ namespace RelLabeler
             }
 
             double offset = SentenceText.VerticalOffset;
-            GetDocument();
+            GetDocument(reloadRecordsList);
             SentenceText.ScrollToVerticalOffset(offset);
 
             SelectText(selectedPos);

@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:RelLabeler"
              mc:Ignorable="d" 
              d:DesignHeight="50" d:DesignWidth="500">
-    <Grid>
+    <Grid MouseEnter="Grid_MouseEnter" MouseLeave="Grid_MouseLeave">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="2*"/>
             <ColumnDefinition Width="*"/>

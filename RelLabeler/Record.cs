@@ -12,6 +12,8 @@ namespace RelLabeler
 
         public bool Annotated = false;
 
+        public bool Highlight = false;
+
         public List<RecordControl> Controls = new List<RecordControl>();
 
         bool isSubjectFlag = false;

@@ -73,6 +73,12 @@ namespace RelLabeler
             set { record.SubjectType = value; }
         }
 
+        public bool Highlight
+        {
+            get { return record.Highlight; }
+            set { record.Highlight = value; }
+        }
+
         public void SelectSubjectLabel(string label)
         {
             int pos = LabelManager.FindLabelIndexByName(entityLabels, label);
@@ -89,6 +95,24 @@ namespace RelLabeler
             if (SubjectType.SelectedIndex != -1)
             {
                 record.SubjectType = entityLabels[SubjectType.SelectedIndex].Item2;
+            }
+        }
+
+        private void Grid_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (!Highlight)
+            {
+                Highlight = true;
+                mainWindow.ReloadText(false);
+            }
+        }
+
+        private void Grid_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (Highlight)
+            {
+                Highlight = false;
+                mainWindow.ReloadText(false);
             }
         }
     }
