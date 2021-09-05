@@ -27,9 +27,11 @@
 - **Remove Stopword (`Ctrl` + `Shift` + `Q`)**
 - **Remove Cache Entry (`Ctrl` + `Shift` + `D`)**
 
-*Note: `Ctrl` or `Shift` refers to left `Ctrl` or `Shift` only.*
+*Notes:*
 
-*Selected text will automatically be available in clipboard.*
+- *`Ctrl` or `Shift` refers to left `Ctrl` or left `Shift` only.*
+- *Selected text will automatically be available in clipboard.*
+- *When focused in the textbox (on the left side of the main window), `E` and `R` are used to go to previous page and next page, respectively.*
 
 
 ## FAQ
