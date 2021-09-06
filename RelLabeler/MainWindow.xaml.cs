@@ -532,20 +532,38 @@ namespace RelLabeler
             }
 
             List<Tuple<int, int>> allEntityOccurrences = new List<Tuple<int, int>>();
-            Brush[] brushes = new Brush[] { Brushes.Blue, Brushes.Green };
+            Brush[] brushes = new Brush[] {
+                Brushes.Blue,
+                //Brushes.Green
+            };
             int j = 0;
             foreach (var record in records.FindAll((x) => !x.Annotated))
             {
                 Tuple<int, int> pos = record.Position;
-                if (!hasHighlightedEntities || record.Highlight)
+                if (!hasHighlightedAnnotations && (!hasHighlightedEntities || record.Highlight))
                 {
-                    SetStyle(pos, new Tuple<DependencyProperty, object>[]
+                    if (record.Highlight)
                     {
-                        //new Tuple<DependencyProperty, object>(
-                        //    TextElement.FontWeightProperty, FontWeights.Bold),
-                        new Tuple<DependencyProperty, object>(
-                            TextElement.ForegroundProperty, brushes[j % brushes.Length])
-                    });
+                        SetStyle(pos, new Tuple<DependencyProperty, object>[]
+                        {
+                            //new Tuple<DependencyProperty, object>(
+                            //    TextElement.FontWeightProperty, FontWeights.Bold),
+                            new Tuple<DependencyProperty, object>(
+                                TextElement.BackgroundProperty, Brushes.LightGreen),
+                            new Tuple<DependencyProperty, object>(
+                                TextElement.ForegroundProperty, brushes[j % brushes.Length])
+                        });
+                    }
+                    else
+                    {
+                        SetStyle(pos, new Tuple<DependencyProperty, object>[]
+                        {
+                            //new Tuple<DependencyProperty, object>(
+                            //    TextElement.FontWeightProperty, FontWeights.Bold),
+                            new Tuple<DependencyProperty, object>(
+                                TextElement.ForegroundProperty, brushes[j % brushes.Length])
+                        });
+                    }
                 }
                 allEntityOccurrences.Add(pos);
                 j++;
@@ -580,7 +598,7 @@ namespace RelLabeler
                 }
             }
 
-            if (showAnnotations)
+            if (showAnnotations && !hasHighlightedEntities)
             {
                 foreach (var record in records.FindAll((x) => x.Annotated))
                 {
