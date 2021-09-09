@@ -8,7 +8,7 @@
 
 ## Concepts
 
-- **Entity (Blue/Green Bold Text)**
+- **Entity (Blue Text)**
 - **Cache Entry (Light Blue Highlighted, Underlined Text)**: Previously annotated entities.
 - **Hint (Light Blue Highlighted, Underlined Text)**: Words that should be paid special attention to.
 - **Stopword (Light Gray Highlighted, Strikethrough Text)**: Words that should not be included in entities.
