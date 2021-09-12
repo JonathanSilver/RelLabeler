@@ -921,7 +921,7 @@ namespace RelLabeler
                         while (reader.Peek() != -1)
                         {
                             string text = reader.ReadLine();
-                            if (text != "")
+                            if (text.Trim() != "")
                             {
                                 command.CommandText = @"
                                         select count(*) from data where sentence = $text;
