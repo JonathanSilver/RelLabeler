@@ -924,24 +924,37 @@ namespace RelLabeler
                             if (text.Trim() != "")
                             {
                                 command.CommandText = @"
-                                        select count(*) from data where sentence = $text;
+                                        select line_id from data where sentence = $text;
                                     ";
                                 command.Parameters.Clear();
                                 command.Parameters.AddWithValue("$text", text);
-                                object r = command.ExecuteScalar();
-                                lineId++;
-                                if (Convert.ToInt32(r) == 0)
+                                bool existedSentence = false;
+                                bool existedLineId = false;
+                                using (var reader2 = command.ExecuteReader())
+                                {
+                                    if (reader2.Read())
+                                    {
+                                        existedSentence = true;
+                                        existedLineId = !reader2.IsDBNull(0);
+                                    }
+                                }
+                                if (!existedSentence)
                                 {
                                     command.CommandText = @"
                                             insert into data (line_id, sentence, relations) values ($id, $text, '');
                                         ";
                                 }
-                                else
+                                else if (!existedLineId)
                                 {
                                     command.CommandText = @"
                                             update data set line_id = $id where sentence = $text;
                                         ";
                                 }
+                                else
+                                {
+                                    continue;
+                                }
+                                lineId++;
                                 command.Parameters.Clear();
                                 command.Parameters.AddWithValue("$id", lineId);
                                 command.Parameters.AddWithValue("$text", text);
