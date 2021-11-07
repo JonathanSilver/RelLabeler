@@ -12,7 +12,7 @@ using System.Windows;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("RelLabeler")]
-[assembly: AssemblyCopyright("Copyright © JonathanSilver 2021")]
+[assembly: AssemblyCopyright("Copyright © Jie Shi 2021")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
