@@ -42,7 +42,14 @@
                     <StackPanel Grid.Row="0">
                         <StackPanel Orientation="Horizontal">
                             <Button Name="PreviousSentenceButton" Margin="5" Click="PreviousSentenceButton_Click" IsEnabled="False">&lt;</Button>
-                            <ComboBox Name="SelectedSentence" Margin="5" FontSize="20" SelectionChanged="SelectedSentence_SelectionChanged" IsEnabled="False"></ComboBox>
+                            <ComboBox Name="SelectedSentence" Margin="5" FontSize="20" SelectionChanged="SelectedSentence_SelectionChanged" IsEnabled="False">
+                                <!-- for faster display -->
+                                <ComboBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel/>
+                                    </ItemsPanelTemplate>
+                                </ComboBox.ItemsPanel>
+                            </ComboBox>
                             <Button Name="NextSentenceButton" Margin="5" Click="NextSentenceButton_Click" IsEnabled="False">&gt;</Button>
                         </StackPanel>
                     </StackPanel>
